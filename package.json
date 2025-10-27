@@ -1,0 +1,65 @@
+{
+  "name": "@c3-oss/vogal",
+  "description": "Vogal",
+  "version": "0.0.1",
+  "author": "Caian Ertl <caian@c3.do>",
+  "private": true,
+  "main": "index.js",
+  "license": "ISC",
+  "homepage": "https://github.com/c3-oss/vogal#readme",
+  "packageManager": "pnpm@10.8.1",
+  "bugs": {
+    "url": "https://github.com/c3-oss/vogal/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/c3-oss/vogal.git"
+  },
+  "scripts": {
+    "prepare": "husky",
+    "bump:dev": "ncu --upgrade --dep dev --target minor",
+    "bump:prod": "ncu --upgrade --dep prod --target minor",
+    "bump:opt": "ncu --upgrade --dep optional --target minor",
+    "bump:all": "pnpm run bump:opt && pnpm run bump:dev && pnpm run bump:prod"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "config": {
+    "commitizen": {
+      "path": "@commitlint/cz-commitlint"
+    }
+  },
+  "dependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@c3-oss/fim": "^0.1.0",
+    "@changesets/cli": "^2.29.7",
+    "@commitlint/cli": "^19.8.1",
+    "@commitlint/config-conventional": "^19.8.1",
+    "@commitlint/cz-commitlint": "^19.8.1",
+    "@swc-node/register": "^1.11.1",
+    "@swc/core": "^1.13.5",
+    "@swc/helpers": "^0.5.17",
+    "@types/node": "^24.5.2",
+    "@vitest/coverage-v8": "^3.2.4",
+    "commitizen": "^4.3.1",
+    "concurrently": "^9.2.1",
+    "husky": "^9.1.7",
+    "npm-check-updates": "^18.3.0",
+    "tsup": "^8.5.0",
+    "turbo": "^2.5.6",
+    "typedoc": "^0.28.13",
+    "typedoc-plugin-coverage": "^4.0.1",
+    "typedoc-plugin-rename-defaults": "^0.7.3",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  },
+  "optionalDependencies": {
+    "@rollup/rollup-linux-arm64-gnu": "^4.52.0",
+    "@rollup/rollup-linux-x64-gnu": "^4.52.0"
+  }
+}

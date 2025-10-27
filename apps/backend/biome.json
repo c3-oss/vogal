@@ -1,0 +1,19 @@
+{
+  "$schema": "https://biomejs.dev/schemas/1.5.3/schema.json",
+  "extends": ["./node_modules/@c3-oss/config-biome/biome.json"],
+  "files": {
+    "ignore": ["./.volumes/**", "./uploads/**", "./pdfs/**"]
+  },
+  "overrides": [
+    {
+      "include": ["**/__tests__/**/*.ts", "**/*.test.ts", "**/*.spec.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noExplicitAny": "off"
+          }
+        }
+      }
+    }
+  ]
+}

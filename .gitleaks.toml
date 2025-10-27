@@ -1,0 +1,16 @@
+[extend]
+useDefault = true
+
+
+[allowlist]
+paths = [
+    '''.c3/''',
+    '''.devbox/''',
+    '''.dist/''',
+    '''.env''',
+    '''.turbo/''',
+    '''.volumes/''',
+    '''devbox.lock''',
+    '''node_modules/''',
+    # ...
+]

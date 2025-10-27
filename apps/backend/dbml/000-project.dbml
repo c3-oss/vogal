@@ -1,0 +1,4 @@
+Project Vogal {
+  database_type: 'PostgreSQL'
+  Note:          'Retrieval-Augmented Generation system'
+}

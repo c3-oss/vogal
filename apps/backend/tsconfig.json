@@ -1,0 +1,22 @@
+{
+  "extends": "@c3-oss/config-typescript/lib.json",
+  "compilerOptions": {
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "~/*": ["./src/*"],
+      "~adapter/*": ["./src/adapter/*"],
+      "~application/*": ["./src/core/application/*"],
+      "~core/*": ["./src/core/*"],
+      "~domain/*": ["./src/core/domain/*"],
+      "~in/*": ["./src/adapter/in/*"],
+      "~validators/*": ["./src/adapter/in/http/validators/*"],
+      "~infra/*": ["./src/infra/*"],
+      "~out/*": ["./src/adapter/out/*"],
+      "~port/*": ["./src/core/application/port/*"],
+      "~shared/*": ["./src/shared/*"],
+      "~test/*": ["./src/test/*"],
+      "~usecase/*": ["./src/core/application/usecase/*"]
+    }
+  }
+}

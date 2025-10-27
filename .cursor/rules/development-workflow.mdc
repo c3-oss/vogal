@@ -1,0 +1,16 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+IF YOU DO NOT HAVE ACCESS TO TOOLS, IGNORE THIS FILE.
+
+----------
+
+This is a TypeScript monorepo that uses PNPM and Turborepo. The packages are available in "packages/".
+
+If you change code in "packages/", run the following commands (in this order) at the level of the modified package:
+- `pnpm lint:fix`
+- `pnpm build`
+
+If any of the commands fail, fix the code.

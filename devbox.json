@@ -1,0 +1,27 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.14.2/.schema/devbox.schema.json",
+  "packages": [
+    "gitleaks@8.28.0",
+    "hadolint@2.12.0",
+    "jq@1.8.1",
+    "just@1.42.4",
+    "nodejs@22.14.0",
+    "pm2@6.0.8",
+    "shellcheck@0.10.0",
+    "shfmt@3.12.0",
+    "terraform@1.12.2"
+  ],
+  "env": {
+    "DEVBOX_COREPACK_ENABLED": "true"
+  },
+  "shell": {
+    "init_hook": [
+      "pnpm install"
+    ],
+    "scripts": {
+      "test": [
+        "echo \"Error: no test specified\" && exit 1"
+      ]
+    }
+  }
+}

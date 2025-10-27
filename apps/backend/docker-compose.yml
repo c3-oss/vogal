@@ -1,0 +1,49 @@
+services:
+  db:
+    image: ${DBIMG}
+    container_name: ${DBHOST}
+    ports:
+      - ${DBPORT}:5432
+    volumes:
+      - ./.volumes/db:/var/lib/postgresql/data
+    restart: always
+    environment:
+      POSTGRES_USER: ${DBUSER}
+      POSTGRES_PASSWORD: ${DBPASS}
+      POSTGRES_DB: ${DBNAME}
+
+  cache:
+    image: ${CACHEIMG}
+    container_name: ${CACHEHOST}
+    ports:
+      - ${CACHEPORT}:6379
+    volumes:
+      - ./.volumes/cache:/data
+    restart: always
+    environment:
+      REDIS_ARGS: |
+        --requirepass ${CACHEPASS}
+        --loglevel notice
+
+  vector:
+    image: ${VECTORIMG}
+    container_name: ${VECTORHOST}
+    ports:
+      - ${VECTORPORT_HTTP}:6333
+      - ${VECTORPORT_GRPC}:6334
+    volumes:
+      - ./.volumes/vector:/qdrant/storage
+    restart: always
+    environment:
+      - QDRANT__SERVICE__API_KEY=${VECTORTOKEN}
+      - QDRANT__LOG_LEVEL=INFO
+
+  localstack:
+    image: ${LOCALSTACKIMG}
+    container_name: ${LOCALSTACKHOST}
+    ports:
+      - 4566:4566
+      - 4510-4559:4510-4559
+    volumes:
+      - ./.volumes/localstack:/var/lib/localstack
+    restart: always

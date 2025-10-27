@@ -1,0 +1,7 @@
+.env
+coverage
+coverage-e2e
+coverage-unit
+dist
+pdfs
+pgdata

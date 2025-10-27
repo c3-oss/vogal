@@ -1,0 +1,13 @@
+TablePartial id {
+  id    int   [pk, not null, increment]
+}
+
+TablePartial metainfo {
+  created_at    timestamp       [not null, default: 'now()']
+  updated_at    timestamp       [not null, default: 'now()']
+}
+
+TablePartial metainfo_del {
+  is_deleted   boolean    [not null, default: false]
+  deleted_at   timestamp
+}

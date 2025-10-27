@@ -1,0 +1,12 @@
+Table documents.documents {
+  id integer [primary key]
+  id_ext varchar [not null, unique]
+  filename varchar(255) [not null]
+  content_type varchar(100) [not null]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  indexes {
+    filename [name: 'idx_filename']
+  }
+}
