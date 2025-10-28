@@ -1,8 +1,8 @@
 // 3rd-party
-import { type ZodEnum, z } from 'zod'
+import { z } from 'zod'
 
 // internal
-import { IdExtSchema } from './common.js'
+import { IdExtSchema, LimitSchema, PageSchema, buildOrderByEnum } from './common.js'
 
 // ---------------------------------------------------------------------------------------------------------------------
 
@@ -21,12 +21,7 @@ export const UserIdExtParamsSchema = z.object({
 })
 
 const UserOrderFields = ['createdAt', 'name', 'email'] as const
-const UserOrderBySchema = ((): ZodEnum<['createdAt', 'name', 'email', '-createdAt', '-name', '-email']> => {
-  return z.enum(['createdAt', 'name', 'email', '-createdAt', '-name', '-email'])
-})()
-
-const LimitSchema = z.coerce.number().int().positive().max(100).default(20)
-const PageSchema = z.coerce.number().int().positive().default(1)
+const UserOrderBySchema = buildOrderByEnum(UserOrderFields)
 
 export const ListUsersQuerySchema = z
   .object({

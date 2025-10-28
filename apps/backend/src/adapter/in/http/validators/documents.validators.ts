@@ -2,18 +2,12 @@
 import { z } from 'zod'
 
 // internal
-import { IdExtSchema } from './common.js'
+import { IdExtSchema, LimitSchema, PageSchema, buildOrderByEnum } from './common.js'
 
 // ---------------------------------------------------------------------------------------------------------------------
 
-const LimitSchema = z.coerce.number().int().positive().max(100).default(20)
-const PageSchema = z.coerce.number().int().positive().default(1)
 const DocumentOrderFields = ['filename', 'title', 'author', 'chunksCount'] as const
-const DocumentOrderBySchema = ((): import('zod').ZodEnum<
-  ['filename', 'title', 'author', 'chunksCount', '-filename', '-title', '-author', '-chunksCount']
-> => {
-  return z.enum(['filename', 'title', 'author', 'chunksCount', '-filename', '-title', '-author', '-chunksCount'])
-})()
+const DocumentOrderBySchema = buildOrderByEnum(DocumentOrderFields)
 
 export const DocumentIdExtParamsSchema = z.object({
   idExt: IdExtSchema,

@@ -20,21 +20,20 @@ type CompensationDeps = Pick<SagaDependencies, 'logger' | 'writer' | 'uploads' |
  */
 export const runCompensations = async (state: DocumentUploadDTO, deps: CompensationDeps): Promise<void> => {
   const lastStep = state.lastCompletedStep ?? 'pending'
+  const { jobIdExt, documentIdExt } = state
 
   if (getStepIndex(lastStep) >= getStepIndex('content_indexed')) {
     const results = await cleanupPersistedContent(state, deps.writer, deps.vectorRepository)
     logCompensationWarnings(
       deps.logger,
-      { jobIdExt: state.jobIdExt, documentIdExt: state.documentIdExt },
+      { jobIdExt, documentIdExt },
       results.map((result) => (isSome(result) ? result.value : undefined)),
     )
   }
 
   if (getStepIndex(lastStep) >= getStepIndex('file_reference')) {
     const res = await deps.writer.deleteFileReference(state.documentId)
-    logCompensationWarnings(deps.logger, { jobIdExt: state.jobIdExt, documentIdExt: state.documentIdExt }, [
-      isSome(res) ? res.value : undefined,
-    ])
+    logCompensationWarnings(deps.logger, { jobIdExt, documentIdExt }, [isSome(res) ? res.value : undefined])
   }
 
   if (getStepIndex(lastStep) >= getStepIndex('storage_upload')) {
@@ -55,12 +54,10 @@ export const logCompensationWarnings = (
   state: Pick<DocumentUploadDTO, 'jobIdExt' | 'documentIdExt'>,
   errors: Array<Optional<Error>>,
 ): void => {
+  const { jobIdExt, documentIdExt } = state
   for (const error of errors) {
     if (error) {
-      logger.warn(
-        { jobId: state.jobIdExt, documentIdExt: state.documentIdExt, error },
-        'compensation: content cleanup encountered error',
-      )
+      logger.warn({ jobId: jobIdExt, documentIdExt, error }, 'compensation: content cleanup encountered error')
     }
   }
 }

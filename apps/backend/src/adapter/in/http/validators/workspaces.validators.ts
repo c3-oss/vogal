@@ -2,7 +2,7 @@
 import { z } from 'zod'
 
 // internal
-import { IdExtSchema } from './common.js'
+import { IdExtSchema, LimitSchema, PageSchema, buildOrderByEnum } from './common.js'
 
 // ---------------------------------------------------------------------------------------------------------------------
 
@@ -24,12 +24,7 @@ export const UserIdParamsSchema = z.object({
 })
 
 const WorkspaceOrderFields = ['createdAt', 'name'] as const
-const WorkspaceOrderBySchema = ((): import('zod').ZodEnum<['createdAt', 'name', '-createdAt', '-name']> => {
-  return z.enum(['createdAt', 'name', '-createdAt', '-name'])
-})()
-
-const LimitSchema = z.coerce.number().int().positive().max(100).default(20)
-const PageSchema = z.coerce.number().int().positive().default(1)
+const WorkspaceOrderBySchema = buildOrderByEnum(WorkspaceOrderFields)
 
 export const ListWorkspacesQuerySchema = z
   .object({

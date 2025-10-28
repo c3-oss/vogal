@@ -17,7 +17,7 @@ export const safeRemoveRemoteFile = async (
   bucket?: string,
   objectKey?: string,
 ): Promise<void> => {
-  if (!bucket || !objectKey) {
+  if (!(bucket && objectKey)) {
     return
   }
 

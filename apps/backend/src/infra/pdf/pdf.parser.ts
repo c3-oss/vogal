@@ -2,7 +2,7 @@
 import fs from 'node:fs/promises'
 
 // 3rd-party
-import { type InfoResult, PDFParse, type TextResult } from 'pdf-parse'
+import { PDFParse } from 'pdf-parse'
 
 // internal
 import type { DocumentMetadataBasicInfoDTO, DocumentPageBasicInfoDTO } from '~application/dto/index.js'
@@ -18,8 +18,8 @@ export interface ParsePDFResult {
 export async function parsePDF(filePath: string): Promise<ParsePDFResult> {
   const dataBuffer = await fs.readFile(filePath)
   const parser = new PDFParse({ data: dataBuffer })
-  const data: TextResult = await parser.getText()
-  const info: InfoResult = await parser.getInfo()
+  const data = await parser.getText()
+  const info = await parser.getInfo()
   await parser.destroy()
 
   const { title, author } = info.info ?? {}

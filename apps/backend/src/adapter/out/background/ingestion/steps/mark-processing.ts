@@ -8,25 +8,28 @@ import type { SagaDependencies } from '../types.js'
 
 // ---------------------------------------------------------------------------------------------------------------------
 
+type MarkProcessingDeps = Pick<SagaDependencies, 'uploads' | 'writer'>
+
 /**
  * Updates the upload/document records to reflect that processing is underway,
  * returning the fresh state snapshot so the saga can proceed confidently.
  */
 export const markProcessing = async (
   state: DocumentUploadDTO,
-  deps: Pick<SagaDependencies, 'uploads' | 'writer'>,
+  deps: MarkProcessingDeps,
 ): Promise<Failable<DocumentUploadDTO>> => {
   const now = new Date()
   const nextStep = getNextPendingStep(state)
 
-  const uploadUpdate = await deps.uploads.updateById(state.id, {
-    status: 'processing',
+  const processingDetails = {
+    status: 'processing' as const,
     currentStep: nextStep,
     startedAt: state.startedAt ?? now,
     heartbeatAt: now,
     errorMessage: null,
-  })
+  }
 
+  const uploadUpdate = await deps.uploads.updateById(state.id, processingDetails)
   if (isSome(uploadUpdate)) {
     return err(uploadUpdate.value)
   }
@@ -36,16 +39,5 @@ export const markProcessing = async (
     failureReason: null,
   })
 
-  if (isErr(documentUpdate)) {
-    return err(documentUpdate.left)
-  }
-
-  return ok({
-    ...state,
-    status: 'processing',
-    currentStep: nextStep,
-    startedAt: state.startedAt ?? now,
-    heartbeatAt: now,
-    errorMessage: null,
-  })
+  return isErr(documentUpdate) ? err(documentUpdate.left) : ok({ ...state, ...processingDetails })
 }

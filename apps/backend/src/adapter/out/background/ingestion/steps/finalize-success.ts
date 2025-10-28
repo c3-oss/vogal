@@ -8,14 +8,13 @@ import type { SagaDependencies } from '../types.js'
 
 // ---------------------------------------------------------------------------------------------------------------------
 
+type FinalizeSuccessDeps = Pick<SagaDependencies, 'uploads' | 'writer' | 'logger'>
+
 /**
  * Wraps up the ingestion saga once all steps have succeeded.
  * It transitions both the document and upload records into their terminal states.
  */
-export const finalizeSuccess = async (
-  state: DocumentUploadDTO,
-  deps: Pick<SagaDependencies, 'uploads' | 'writer' | 'logger'>,
-): Promise<Option<Error>> => {
+export const finalizeSuccess = async (state: DocumentUploadDTO, deps: FinalizeSuccessDeps): Promise<Option<Error>> => {
   deps.logger.info(
     { jobId: state.jobIdExt, documentIdExt: state.documentIdExt },
     'saga: finalizing successful ingestion',
@@ -27,14 +26,14 @@ export const finalizeSuccess = async (
   })
 
   if (isErr(documentUpdate)) {
-    const error =
+    return some(
       documentUpdate.left instanceof Error
         ? documentUpdate.left
         : new VErrorUnknown({
             message: 'Failed to update document to ready',
             context: { documentIdExt: state.documentIdExt },
-          })
-    return some(error)
+          }),
+    )
   }
 
   const uploadUpdate = await deps.uploads.updateById(state.id, {
@@ -54,5 +53,6 @@ export const finalizeSuccess = async (
     { jobId: state.jobIdExt, documentIdExt: state.documentIdExt },
     'saga: ingestion completed successfully',
   )
+
   return none
 }

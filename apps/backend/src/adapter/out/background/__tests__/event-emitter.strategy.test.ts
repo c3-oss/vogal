@@ -68,7 +68,7 @@ function createUploadsRepoMock() {
   return {
     create: vi.fn(async (row: any) => ok({ id: 123, jobIdExt: 'job-1', retryCount: 0, ...row })),
     getById: vi.fn(async () => ok(none)),
-    updateById: vi.fn(async () => ok(undefined)),
+    updateById: vi.fn(async () => none),
   }
 }
 
@@ -185,16 +185,20 @@ describe('EventEmitterBackgroundStrategy', () => {
     expect(storage.upload).toHaveBeenCalledWith(
       expect.objectContaining({ documentIdExt: baseJob.documentIdExt, filename: baseJob.filename }),
     )
-    expect(writer.attachFileReference).toHaveBeenCalledWith(
-      expect.objectContaining({ documentId: baseJob.documentId, provider: 's3' }),
-    )
-    expect(processor.execute).toHaveBeenCalledWith(
-      expect.objectContaining({ documentId: baseJob.documentId, documentIdExt: baseJob.documentIdExt }),
-    )
-    expect(writer.updateDocument).toHaveBeenCalledWith(baseJob.documentIdExt, {
-      status: 'ready',
-      failureReason: null,
+
+    await vi.waitFor(() => {
+      expect(writer.attachFileReference).toHaveBeenCalledWith(
+        expect.objectContaining({ documentId: baseJob.documentId, provider: 's3' }),
+      )
+      expect(processor.execute).toHaveBeenCalledWith(
+        expect.objectContaining({ documentId: baseJob.documentId, documentIdExt: baseJob.documentIdExt }),
+      )
+      expect(writer.updateDocument).toHaveBeenCalledWith(baseJob.documentIdExt, {
+        status: 'ready',
+        failureReason: null,
+      })
     })
+
     expect(storage.remove).not.toHaveBeenCalled()
     expect(fsUnlink).toHaveBeenCalledWith(baseJob.filePath)
   })
@@ -262,19 +266,22 @@ describe('EventEmitterBackgroundStrategy', () => {
     await strategy.enqueuePdfIngestion(baseJob)
     await new Promise((resolve) => setImmediate(resolve))
 
-    expect(writer.deleteMetadata).toHaveBeenCalledWith(baseJob.documentId)
-    expect(writer.deletePages).toHaveBeenCalledWith(baseJob.documentId)
-    expect(writer.deleteFileReference).toHaveBeenCalledWith(baseJob.documentId)
-    expect(vectorRepository.deleteDocumentVectors).toHaveBeenCalledWith(baseJob.documentIdExt, baseJob.workspaceIdExt)
-    expect(storage.remove).toHaveBeenCalledWith({ bucket: 'bucket', objectKey: 'object-key' })
-    expect(writer.updateDocument).toHaveBeenCalledWith(baseJob.documentIdExt, {
-      status: 'failed',
-      failureReason: 'processor boom',
+    await vi.waitFor(() => {
+      expect(writer.deleteMetadata).toHaveBeenCalledWith(baseJob.documentId)
+      expect(writer.deletePages).toHaveBeenCalledWith(baseJob.documentId)
+      expect(writer.deleteFileReference).toHaveBeenCalledWith(baseJob.documentId)
+      expect(vectorRepository.deleteDocumentVectors).toHaveBeenCalledWith(baseJob.documentIdExt, baseJob.workspaceIdExt)
+      expect(storage.remove).toHaveBeenCalledWith({ bucket: 'bucket', objectKey: 'object-key' })
+      expect(writer.updateDocument).toHaveBeenCalledWith(baseJob.documentIdExt, {
+        status: 'failed',
+        failureReason: 'processor boom',
+      })
+      expect(uploads.updateById).toHaveBeenCalledWith(
+        88,
+        expect.objectContaining({ status: 'failed', errorMessage: 'processor boom' }),
+      )
     })
-    expect(uploads.updateById).toHaveBeenCalledWith(
-      88,
-      expect.objectContaining({ status: 'failed', errorMessage: 'processor boom' }),
-    )
+
     expect(fsUnlink).toHaveBeenCalledWith(baseJob.filePath)
   })
 })

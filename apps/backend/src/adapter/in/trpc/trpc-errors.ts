@@ -34,7 +34,9 @@ export const mapVERRToTRPC = (code: VERR): TRPCError['code'] => {
 }
 
 export const toTRPCError = (e: unknown): TRPCError => {
-  if (e instanceof TRPCError) return e
+  if (e instanceof TRPCError) {
+    return e
+  }
   if (e instanceof VError) {
     return new TRPCError({ code: mapVERRToTRPC(e.getInternalCode()), message: e.message, cause: e })
   }

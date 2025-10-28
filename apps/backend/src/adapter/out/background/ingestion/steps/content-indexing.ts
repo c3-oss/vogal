@@ -1,5 +1,5 @@
 // c3
-import { type Failable, err, isSome, ok } from '@c3-oss/functional'
+import { type Failable, err, isNone, isSome, ok } from '@c3-oss/functional'
 
 // internal
 import { cleanupPersistedContent } from '../errors.js'
@@ -8,26 +8,29 @@ import type { SagaDependencies } from '../types.js'
 
 // ---------------------------------------------------------------------------------------------------------------------
 
+type ContentIndexingDeps = Pick<
+  SagaDependencies,
+  | 'processor'
+  | 'uploads'
+  | 'logger'
+  | 'writer'
+  | 'vectorRepository'
+  | 'parsePdf'
+  | 'chunkText'
+  | 'chunkSize'
+  | 'chunkOverlap'
+>
+
 /**
  * Parses the PDF, delegates to the domain use case to generate embeddings,
  * and advances the upload state. On failure we roll back all persisted content.
  */
 export const performContentIndexing = async (
   state: DocumentUploadDTO,
-  deps: Pick<
-    SagaDependencies,
-    | 'processor'
-    | 'uploads'
-    | 'logger'
-    | 'writer'
-    | 'vectorRepository'
-    | 'parsePdf'
-    | 'chunkText'
-    | 'chunkSize'
-    | 'chunkOverlap'
-  >,
+  deps: ContentIndexingDeps,
 ): Promise<Failable<DocumentUploadDTO>> => {
-  deps.logger.info({ jobId: state.jobIdExt, documentIdExt: state.documentIdExt }, 'step: parsing and indexing content')
+  const { jobIdExt, documentIdExt } = state
+  deps.logger.info({ jobId: jobIdExt, documentIdExt }, 'step: parsing and indexing content')
 
   const parsedDocument = await deps.parsePdf(state.tempFilePath)
 
@@ -58,28 +61,24 @@ export const performContentIndexing = async (
     return err(processingResult.value)
   }
 
-  const updateResult = await deps.uploads.updateById(state.id, {
-    lastCompletedStep: 'content_indexed',
-    currentStep: 'finalized',
-    heartbeatAt: new Date(),
-  })
-
-  if (isSome(updateResult)) {
-    const results = await cleanupPersistedContent(state, deps.writer, deps.vectorRepository)
-    for (const r of results) {
-      if (isSome(r)) {
-        deps.logger.warn(
-          { jobId: state.jobIdExt, documentIdExt: state.documentIdExt, error: r.value },
-          'compensation: content cleanup encountered error',
-        )
-      }
-    }
-    return err(updateResult.value)
+  const contentIndexingDetails = {
+    lastCompletedStep: 'content_indexed' as const,
+    currentStep: 'finalized' as const,
   }
 
-  return ok({
-    ...state,
-    lastCompletedStep: 'content_indexed',
-    currentStep: 'finalized',
-  })
+  const updateResult = await deps.uploads.updateById(state.id, { ...contentIndexingDetails, heartbeatAt: new Date() })
+  if (isNone(updateResult)) {
+    return ok({ ...state, ...contentIndexingDetails })
+  }
+
+  const results = await cleanupPersistedContent(state, deps.writer, deps.vectorRepository)
+  for (const r of results) {
+    if (isSome(r)) {
+      deps.logger.warn(
+        { jobId: jobIdExt, documentIdExt, error: r.value },
+        'compensation: content cleanup encountered error',
+      )
+    }
+  }
+  return err(updateResult.value)
 }

@@ -1,13 +1,14 @@
 // 3rd-party
-import { z } from 'zod'
+import { type ZodEnum, z } from 'zod'
 
 // ---------------------------------------------------------------------------------------------------------------------
 
 export const IdExtSchema = z.string().min(1)
 export const UserIdSchema = z.string().min(1)
 
-const LimitSchema = z.coerce.number().int().positive().max(100).default(20)
-const PageSchema = z.coerce.number().int().positive().default(1)
+// Shared pagination schemas
+export const LimitSchema = z.coerce.number().int().positive().max(100).default(20)
+export const PageSchema = z.coerce.number().int().positive().default(1)
 const OrderBySchema = z
   .string()
   .regex(/^-?[A-Za-z][A-Za-z0-9_]*$/)
@@ -26,3 +27,8 @@ export const ListQuerySchema = z
     const orderDirection = isDesc ? 'desc' : 'asc'
     return { limit, page, orderField, orderDirection }
   })
+
+export function buildOrderByEnum<const T extends readonly string[]>(fields: T): ZodEnum<[string, ...string[]]> {
+  const withDirections = [...fields, ...fields.map((f) => `-${f}`)] as unknown as [string, ...string[]]
+  return z.enum(withDirections)
+}
