@@ -5,10 +5,15 @@ import fs from 'node:fs/promises'
 // c3
 import { type Failable, type Option, err, isErr, isNone, isSome, none, ok, some, val } from '@c3-oss/functional'
 import type { Logger } from '@c3-oss/logger'
+import type { Nullable } from '@c3-oss/types'
 
 // internal
 import { BaseAdapter } from '~adapter/shared/base-adapter.js'
-import type { DocumentUploadDTO } from '~application/dto/index.js'
+import type {
+  DocumentMetadataBasicInfoDTO,
+  DocumentPageBasicInfoDTO,
+  DocumentUploadDTO,
+} from '~application/dto/index.js'
 import type { BackgroundProcessingPort, IngestJob } from '~application/port/background-processing.port.js'
 import type { StorageProvider, StorageProviderPort } from '~application/port/storage-provider.port.js'
 import { VErrorInvalidState, VErrorUnknown } from '~infra/errors/index.js'
@@ -37,9 +42,9 @@ interface SagaDependencies {
   processor: ProcessPdfUseCase
   vectorRepository: VogalRepositoryPort
   parsePdf: (filePath: string) => Promise<{
-    pages: Array<{ pageNumber: number; text: string }>
+    pages: DocumentPageBasicInfoDTO[]
     totalPages: number
-    metadata: { title?: string; author?: string }
+    metadata: Partial<DocumentMetadataBasicInfoDTO>
   }>
   chunkText: (text: string, chunkSize: number, overlap: number) => string[]
   chunkSize: number
@@ -81,10 +86,12 @@ export class EventEmitterBackgroundStrategy extends BaseAdapter implements Backg
     this.chunkOverlap = deps.chunkOverlap
     this.log = deps.logger.child({ layer: 'background', module: 'document-ingestion' })
 
-    eventBus.on('ingest-pdf', (payload: IngestEventPayload) => {
-      void this.processUpload(payload.uploadId).catch((error) => {
+    eventBus.on('ingest-pdf', async (payload: IngestEventPayload) => {
+      try {
+        await this.processUpload(payload.uploadId)
+      } catch (error) {
         this.log.error({ uploadId: payload.uploadId, error }, 'ingestion job failed unexpectedly')
-      })
+      }
     })
   }
 
@@ -116,7 +123,7 @@ export class EventEmitterBackgroundStrategy extends BaseAdapter implements Backg
     eventBus.emit('ingest-pdf', { uploadId: record.id } satisfies IngestEventPayload)
   }
 
-  private getStepIndex(step?: UploadStep | null): number {
+  private getStepIndex(step?: Nullable<UploadStep>): number {
     const target = step ?? 'pending'
     return STEP_ORDER.indexOf(target)
   }

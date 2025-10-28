@@ -6,6 +6,7 @@ import stringify from 'safe-stable-stringify'
 
 // c3
 import type { Logger } from '@c3-oss/logger'
+import type { Nullable } from '@c3-oss/types'
 
 // internal
 import { BaseAdapter } from '~adapter/shared/base-adapter.js'
@@ -44,7 +45,7 @@ export class RedisCacheAdapter extends BaseAdapter implements CachePort {
     }
   }
 
-  public async getJSON<T>(key: string): Promise<T | null> {
+  public async getJSON<T>(key: string): Promise<Nullable<T>> {
     try {
       const value = await this.json.get(key)
       return (value as T | null) ?? null

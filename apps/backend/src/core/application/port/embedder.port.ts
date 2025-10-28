@@ -1,6 +1,9 @@
 // c3
 import type { Failable } from '@c3-oss/functional'
 
+// internal
+import type { Matrix } from '~infra/contracts.js'
+
 // ---------------------------------------------------------------------------------------------------------------------
 
 /**
@@ -8,5 +11,5 @@ import type { Failable } from '@c3-oss/functional'
  */
 export interface EmbedderPort {
   /** Generates vector embeddings for multiple text inputs. */
-  embedMany(texts: string[]): Promise<Failable<number[][]>>
+  embedMany(texts: string[]): Promise<Failable<Matrix<number>>>
 }

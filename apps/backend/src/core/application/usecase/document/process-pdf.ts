@@ -6,7 +6,13 @@ import { type Option, isErr, isSome, none, some, val } from '@c3-oss/functional'
 import type { Logger } from '@c3-oss/logger'
 
 // internal
-import type { DocumentMetadataInsertDTO, DocumentPageInsertDTO, IndexedPointDTO } from '~application/dto/index.js'
+import type {
+  DocumentMetadataBasicInfoDTO,
+  DocumentMetadataInsertDTO,
+  DocumentPageBasicInfoDTO,
+  DocumentPageInsertDTO,
+  IndexedPointDTO,
+} from '~application/dto/index.js'
 import type {
   DocumentWritePort,
   EmbedderPort,
@@ -32,9 +38,9 @@ export interface ProcessPdfParams {
   workspaceIdExt: string
   filename: string
   contentType: string
-  pages: Array<{ pageNumber: number; text: string }>
+  pages: DocumentPageBasicInfoDTO[]
   totalPages: number
-  metadata: { title?: string; author?: string }
+  metadata: Partial<DocumentMetadataBasicInfoDTO>
   chunkSize: number
   chunkOverlap: number
   chunkText: (text: string, chunkSize: number, overlap: number) => string[]

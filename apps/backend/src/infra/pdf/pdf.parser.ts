@@ -4,12 +4,15 @@ import fs from 'node:fs/promises'
 // 3rd-party
 import { type InfoResult, PDFParse, type TextResult } from 'pdf-parse'
 
+// internal
+import type { DocumentMetadataBasicInfoDTO, DocumentPageBasicInfoDTO } from '~application/dto/index.js'
+
 // ---------------------------------------------------------------------------------------------------------------------
 
 export interface ParsePDFResult {
-  pages: Array<{ pageNumber: number; text: string }>
+  pages: DocumentPageBasicInfoDTO[]
   totalPages: number
-  metadata: { title?: string; author?: string }
+  metadata: Partial<DocumentMetadataBasicInfoDTO>
 }
 
 export async function parsePDF(filePath: string): Promise<ParsePDFResult> {

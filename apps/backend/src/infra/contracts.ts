@@ -12,3 +12,8 @@ export type Jsonifiable =
   | Error
   | Jsonifiable[]
   | { [key: string]: Jsonifiable }
+
+/**
+ * Type representing a matrix of values.
+ */
+export type Matrix<T> = T[][]

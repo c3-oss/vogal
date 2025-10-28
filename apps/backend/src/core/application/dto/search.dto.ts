@@ -1,25 +1,20 @@
+import type { DocumentMetadataBasicInfoDTO } from '~application/dto/document-metadata.dto.js'
+import type { DocumentPageBasicInfoDTO } from '~application/dto/document-page.dto.js'
+
 /**
  * Individual search result from a document chunk.
  */
-export interface DocumentResultDTO {
+export interface DocumentResultDTO extends Partial<DocumentPageBasicInfoDTO> {
   /** Similarity score of the result. */
   score: number
   /** External document identifier. */
   documentId?: string
   /** Document filename. */
   filename?: string
-  /** Page number where the chunk was found. */
-  pageNumber?: number
   /** Index of the text chunk within the document. */
   chunkIndex?: number
-  /** Text content of the matching chunk. */
-  text?: string
   /** Additional document metadata. */
-  metadata?: {
-    title?: string
-    author?: string
-    totalPages?: number
-  }
+  metadata?: Partial<DocumentMetadataBasicInfoDTO & { totalPages: number }>
 }
 
 /**

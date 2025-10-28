@@ -7,8 +7,8 @@ import { DeleteObjectCommand, PutObjectCommand, S3Client, type S3ClientConfig } 
 // c3
 import { type Failable, type Option, err, none, ok, some } from '@c3-oss/functional'
 
-import { BaseAdapter } from '~adapter/shared/base-adapter.js'
 // internal
+import { BaseAdapter } from '~adapter/shared/base-adapter.js'
 import type {
   StorageProviderPort,
   StorageRemoveInput,

@@ -4,6 +4,7 @@ import type { Optional } from '@c3-oss/types'
 
 // internal
 import type {
+  DocumentMetadataBasicInfoDTO,
   IndexedPointDTO,
   PaginatedResultDTO,
   PaginationQueryDTO,
@@ -16,15 +17,11 @@ import type {
 /**
  * Result data for document listing operations.
  */
-export interface ListDocumentsResultDTO {
+export interface ListDocumentsResultDTO extends Partial<DocumentMetadataBasicInfoDTO> {
   /** Unique identifier of the document. */
   documentId: string
   /** Optional filename of the document. */
   filename?: string
-  /** Optional title extracted from the document. */
-  title?: string
-  /** Optional author information. */
-  author?: string
   /** Optional total number of pages in the document. */
   totalPages?: number
   /** Number of text chunks indexed for this document. */

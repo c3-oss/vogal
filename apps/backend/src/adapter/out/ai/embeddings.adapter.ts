@@ -7,6 +7,7 @@ import { type Failable, err, ok } from '@c3-oss/functional'
 // internal
 import { BaseAdapter } from '~adapter/shared/base-adapter.js'
 import { env } from '~infra/config/env.js'
+import type { Matrix } from '~infra/contracts.js'
 import { VErrorExternalServiceUnavailable, VErrorRateLimited } from '~infra/errors/index.js'
 import type { EmbedderPort } from '~port/index.js'
 
@@ -23,7 +24,7 @@ export class OpenAIEmbedder extends BaseAdapter implements EmbedderPort {
     this.model = env.VOGAL_EMBEDDING_MODEL
   }
 
-  public async embedMany(texts: string[]): Promise<Failable<number[][]>> {
+  public async embedMany(texts: string[]): Promise<Failable<Matrix<number>>> {
     try {
       const response = await this.client.embeddings.create({
         model: this.model,

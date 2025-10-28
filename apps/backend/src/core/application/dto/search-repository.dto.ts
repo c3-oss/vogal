@@ -1,15 +1,13 @@
+import type { DocumentMetadataBasicInfoDTO } from '~application/dto/document-metadata.dto.js'
+
 /**
  * Payload data associated with an indexed vector point.
  */
-export interface IndexedPointPayloadDTO {
+export interface IndexedPointPayloadDTO extends Partial<DocumentMetadataBasicInfoDTO> {
   /** External document identifier. */
   documentId: string
   /** Document filename. */
   filename: string
-  /** Document title if available. */
-  title?: string
-  /** Document author if available. */
-  author?: string
   /** Page number where this chunk originates. */
   pageNumber: number
   /** Index of this chunk within the document. */
