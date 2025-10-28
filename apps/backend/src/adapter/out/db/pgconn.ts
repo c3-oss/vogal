@@ -35,3 +35,5 @@ export const db = __USE_PGLITE
     })
 
 export type DB = typeof db
+export type DBTransaction = Parameters<Parameters<DB['transaction']>[0]>[0]
+export type DBClient = DB | DBTransaction

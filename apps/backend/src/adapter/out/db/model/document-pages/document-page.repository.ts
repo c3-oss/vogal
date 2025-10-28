@@ -6,7 +6,7 @@ import { type Option, none, some } from '@c3-oss/functional'
 import { errorWrapper } from '@c3-oss/typeguard'
 
 // internal
-import type { DB } from '~adapter/out/db/pgconn.js'
+import type { DBClient } from '~adapter/out/db/pgconn.js'
 import type { DocumentPageInsertDTO } from '~application/dto/document-page.dto.js'
 import { BaseRepository } from '../base-repository.js'
 import { tableDocumentPages } from './document-page.schema.js'
@@ -14,9 +14,9 @@ import { tableDocumentPages } from './document-page.schema.js'
 // ---------------------------------------------------------------------------------------------------------------------
 
 export class DocumentPageRepository extends BaseRepository {
-  private readonly db: DB
+  private readonly db: DBClient
 
-  public constructor(db: DB) {
+  public constructor(db: DBClient) {
     super()
 
     this.invariant(db, { skipKeys: true })

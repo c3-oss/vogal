@@ -6,7 +6,7 @@ import { eq } from 'drizzle-orm'
 import { errorWrapper } from '@c3-oss/typeguard'
 
 // internal
-import type { DB } from '~adapter/out/db/pgconn.js'
+import type { DBClient } from '~adapter/out/db/pgconn.js'
 import type { DocumentDTO, DocumentInsertDTO, DocumentUpdateDTO } from '~application/dto/document.dto.js'
 import { BaseRepository } from '../base-repository.js'
 import { tableWorkspaces } from '../workspace/workspace.schema.js'
@@ -15,9 +15,9 @@ import { tableDocuments } from './document.schema.js'
 // ---------------------------------------------------------------------------------------------------------------------
 
 export class DocumentRepository extends BaseRepository {
-  private readonly db: DB
+  private readonly db: DBClient
 
-  public constructor(db: DB) {
+  public constructor(db: DBClient) {
     super()
 
     this.invariant(db, { skipKeys: true })

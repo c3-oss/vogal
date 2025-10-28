@@ -15,6 +15,7 @@ import type {
   StorageUploadInput,
   StorageUploadResult,
 } from '~application/port/storage-provider.port.js'
+import { createGenericBreaker } from '~infra/circuit-breaker.js'
 import { VErrorExternalServiceUnavailable, VErrorInvalidState } from '~infra/errors/index.js'
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -63,25 +64,29 @@ const createClient = (config: S3StorageConfig): S3Client => {
 export class S3StorageAdapter extends BaseAdapter implements StorageProviderPort {
   private readonly client: S3Client
   private readonly config: S3StorageConfig
+  private readonly circuitBreaker
 
   public constructor(config: S3StorageConfig) {
     super()
     this.invariant(config.bucket, { errorMessage: 'S3 bucket is required' })
     this.client = createClient(config)
     this.config = config
+    this.circuitBreaker = createGenericBreaker()
   }
 
   public async upload(input: StorageUploadInput): Promise<Failable<StorageUploadResult>> {
     const objectKey = buildObjectKey(input)
 
     try {
-      await this.client.send(
-        new PutObjectCommand({
-          Bucket: this.config.bucket,
-          Key: objectKey,
-          Body: createReadStream(input.localFilePath),
-          ContentType: input.contentType,
-        }),
+      await this.circuitBreaker.fire(() =>
+        this.client.send(
+          new PutObjectCommand({
+            Bucket: this.config.bucket,
+            Key: objectKey,
+            Body: createReadStream(input.localFilePath),
+            ContentType: input.contentType,
+          }),
+        ),
       )
 
       return ok({
@@ -105,11 +110,13 @@ export class S3StorageAdapter extends BaseAdapter implements StorageProviderPort
 
   public async remove(input: StorageRemoveInput): Promise<Option<Error>> {
     try {
-      await this.client.send(
-        new DeleteObjectCommand({
-          Bucket: input.bucket,
-          Key: input.objectKey,
-        }),
+      await this.circuitBreaker.fire(() =>
+        this.client.send(
+          new DeleteObjectCommand({
+            Bucket: input.bucket,
+            Key: input.objectKey,
+          }),
+        ),
       )
       return none
     } catch (error) {

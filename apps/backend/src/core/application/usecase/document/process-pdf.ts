@@ -163,15 +163,6 @@ export class ProcessPdfUseCase extends BaseUseCase {
       }
     }
 
-    const insertPagesError = await this.writer.insertPages(pageRows)
-    if (isSome(insertPagesError)) {
-      this.log.warn(
-        { documentIdExt, workspaceIdExt, filename, error: insertPagesError.value },
-        'failed to persist document pages',
-      )
-      return some(insertPagesError.value)
-    }
-
     const metaRows: DocumentMetadataInsertDTO[] = []
     if (metadata.title) {
       metaRows.push({ documentId, key: 'title', value: metadata.title })
@@ -180,22 +171,48 @@ export class ProcessPdfUseCase extends BaseUseCase {
       metaRows.push({ documentId, key: 'author', value: metadata.author })
     }
 
-    const upsertMetadataError = await this.writer.upsertMetadata(metaRows)
-    if (isSome(upsertMetadataError)) {
-      this.log.warn(
-        { documentIdExt, workspaceIdExt, filename, error: upsertMetadataError.value },
-        'failed to upsert document metadata',
-      )
-      return some(upsertMetadataError.value)
-    }
+    try {
+      await this.writer.runInTransaction(async (writer) => {
+        const insertPagesError = await writer.insertPages(pageRows)
+        if (isSome(insertPagesError)) {
+          this.log.warn(
+            { documentIdExt, workspaceIdExt, filename, error: insertPagesError.value },
+            'failed to persist document pages',
+          )
+          throw insertPagesError.value
+        }
 
-    const upsertPointsError = await this.repository.upsert(points, workspaceIdExt)
-    if (isSome(upsertPointsError)) {
+        const upsertMetadataError = await writer.upsertMetadata(metaRows)
+        if (isSome(upsertMetadataError)) {
+          this.log.warn(
+            { documentIdExt, workspaceIdExt, filename, error: upsertMetadataError.value },
+            'failed to upsert document metadata',
+          )
+          throw upsertMetadataError.value
+        }
+
+        const upsertPointsError = await this.repository.upsert(points, workspaceIdExt)
+        if (isSome(upsertPointsError)) {
+          this.log.warn(
+            { documentIdExt, workspaceIdExt, filename, error: upsertPointsError.value },
+            'failed to upsert vector points',
+          )
+          throw upsertPointsError.value
+        }
+      })
+    } catch (error) {
+      const failure =
+        error instanceof Error
+          ? error
+          : new VErrorProcessingFailed({
+              message: 'Document processing transaction failed',
+              context: { documentIdExt, workspaceIdExt, filename },
+            })
       this.log.warn(
-        { documentIdExt, workspaceIdExt, filename, error: upsertPointsError.value },
-        'failed to upsert vector points',
+        { documentIdExt, workspaceIdExt, filename, error: failure },
+        'PDF processing aborted; database transaction rolled back',
       )
-      return some(upsertPointsError.value)
+      return some(failure)
     }
 
     this.log.info(

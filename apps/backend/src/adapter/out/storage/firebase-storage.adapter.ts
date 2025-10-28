@@ -12,6 +12,7 @@ import type {
   StorageUploadInput,
   StorageUploadResult,
 } from '~application/port/storage-provider.port.js'
+import { createGenericBreaker } from '~infra/circuit-breaker.js'
 import { VErrorExternalServiceUnavailable, VErrorInvalidState } from '~infra/errors/index.js'
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -32,6 +33,7 @@ const buildPublicUrl = (bucket: string, objectKey: string): string =>
 export class FirebaseStorageAdapter extends BaseAdapter implements StorageProviderPort {
   private readonly bucketName: string
   private readonly storage: Storage
+  private readonly circuitBreaker
 
   public constructor(config: FirebaseStorageConfig) {
     super()
@@ -41,7 +43,7 @@ export class FirebaseStorageAdapter extends BaseAdapter implements StorageProvid
     }
 
     this.bucketName = config.bucket
-    const sanitizedKey = config.privateKey.replace(/\\n/g, '\n')
+    const sanitizedKey = config.privateKey.replace(/\n/g, '\n')
 
     const options: StorageOptions = {
       projectId: config.projectId,
@@ -52,6 +54,7 @@ export class FirebaseStorageAdapter extends BaseAdapter implements StorageProvid
     }
 
     this.storage = new Storage(options)
+    this.circuitBreaker = createGenericBreaker()
   }
 
   public async upload(input: StorageUploadInput): Promise<Failable<StorageUploadResult>> {
@@ -59,11 +62,13 @@ export class FirebaseStorageAdapter extends BaseAdapter implements StorageProvid
     const bucket = this.storage.bucket(this.bucketName)
 
     try {
-      await bucket.upload(input.localFilePath, {
-        destination: objectKey,
-        contentType: input.contentType,
-        resumable: false,
-      })
+      await this.circuitBreaker.fire(() =>
+        bucket.upload(input.localFilePath, {
+          destination: objectKey,
+          contentType: input.contentType,
+          resumable: false,
+        }),
+      )
 
       return ok({
         provider: 'firebase' as const,
@@ -86,7 +91,9 @@ export class FirebaseStorageAdapter extends BaseAdapter implements StorageProvid
 
   public async remove(input: StorageRemoveInput): Promise<Option<Error>> {
     try {
-      await this.storage.bucket(this.bucketName).file(input.objectKey).delete({ ignoreNotFound: true })
+      await this.circuitBreaker.fire(() =>
+        this.storage.bucket(this.bucketName).file(input.objectKey).delete({ ignoreNotFound: true }),
+      )
       return none
     } catch (error) {
       return some(

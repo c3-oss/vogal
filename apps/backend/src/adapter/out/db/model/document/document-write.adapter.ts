@@ -2,7 +2,7 @@
 import { type Option, isErr, isSome, none, some } from '@c3-oss/functional'
 
 // internal
-import type { DB } from '~adapter/out/db/pgconn.js'
+import type { DB, DBClient } from '~adapter/out/db/pgconn.js'
 import { BaseAdapter } from '~adapter/shared/base-adapter.js'
 import type { DocumentMetadataInsertDTO, DocumentPageInsertDTO, DocumentUpdateDTO } from '~application/dto/index.js'
 import type {
@@ -19,14 +19,16 @@ import { DocumentRepository } from './document.repository.js'
 // ---------------------------------------------------------------------------------------------------------------------
 
 export class DocumentWriteAdapter extends BaseAdapter implements DocumentWritePort {
+  private readonly db: DBClient
   private readonly documentRepo: DocumentRepository
   private readonly pageRepo: DocumentPageRepository
   private readonly metadataRepo: DocumentMetadataRepository
   private readonly fileRepo: DocumentFileRepository
 
-  public constructor(db: DB) {
+  public constructor(db: DBClient) {
     super()
     this.invariant(db, { skipKeys: true })
+    this.db = db
     this.documentRepo = new DocumentRepository(db)
     this.pageRepo = new DocumentPageRepository(db)
     this.metadataRepo = new DocumentMetadataRepository(db)
@@ -137,5 +139,17 @@ export class DocumentWriteAdapter extends BaseAdapter implements DocumentWritePo
     }
 
     return none
+  }
+
+  public async runInTransaction<T>(operation: (unit: DocumentWritePort) => Promise<T>): Promise<T> {
+    const rootDb = this.db as DB
+    if (typeof rootDb.transaction === 'function') {
+      return await rootDb.transaction(async (tx) => {
+        const transactionalAdapter = new DocumentWriteAdapter(tx)
+        return await operation(transactionalAdapter)
+      })
+    }
+
+    return await operation(this)
   }
 }

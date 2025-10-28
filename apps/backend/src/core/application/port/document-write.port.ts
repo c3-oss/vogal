@@ -47,4 +47,6 @@ export interface DocumentWritePort {
   insertPages(pages: DocumentPageInsertDTO[]): Promise<Option<Error>>
   /** Updates or inserts document metadata records. */
   upsertMetadata(metadata: DocumentMetadataInsertDTO[]): Promise<Option<Error>>
+  /** Executes a batch of operations inside a single database transaction. */
+  runInTransaction<T>(operation: (unit: DocumentWritePort) => Promise<T>): Promise<T>
 }

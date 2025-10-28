@@ -17,6 +17,7 @@ const createDeps = (): ProcessPdfDeps & {
   writer: ProcessPdfDeps['writer'] & {
     insertPages: ReturnType<typeof vi.fn>
     upsertMetadata: ReturnType<typeof vi.fn>
+    runInTransactionSpy: ReturnType<typeof vi.fn>
   }
 } => {
   const embedMany = vi.fn(async () =>
@@ -51,16 +52,27 @@ const createDeps = (): ProcessPdfDeps & {
     ),
   } as ProcessPdfDeps['repository'] & { upsert: typeof repoUpsert }
 
-  const writer = {
-    createDocument: vi.fn(),
-    insertPages: writerInsertPages,
-    upsertMetadata: writerUpsertMetadata,
-    attachFileReference: writerAttachFileReference,
-  } as ProcessPdfDeps['writer'] & {
+  type WriterMock = ProcessPdfDeps['writer'] & {
     insertPages: typeof writerInsertPages
     upsertMetadata: typeof writerUpsertMetadata
     attachFileReference: typeof writerAttachFileReference
+    runInTransactionSpy: ReturnType<typeof vi.fn>
   }
+
+  const writer = {} as WriterMock
+  writer.createDocument = vi.fn()
+  writer.insertPages = writerInsertPages
+  writer.upsertMetadata = writerUpsertMetadata
+  writer.attachFileReference = writerAttachFileReference
+
+  const runInTransactionSpy = vi.fn(async (operation: (unit: ProcessPdfDeps['writer']) => Promise<unknown>) => {
+    return await operation(writer)
+  })
+
+  writer.runInTransaction = async <T>(operation: (unit: ProcessPdfDeps['writer']) => Promise<T>): Promise<T> => {
+    return (await runInTransactionSpy(operation)) as T
+  }
+  writer.runInTransactionSpy = runInTransactionSpy
 
   const deps: ProcessPdfDeps = {
     embedder: { embedMany } as ProcessPdfDeps['embedder'],
@@ -106,6 +118,7 @@ describe('ProcessPdfUseCase', () => {
       { documentId: 1, key: 'author', value: 'a' },
     ])
     expect(deps.repository.upsert).toHaveBeenCalled()
+    expect(deps.writer.runInTransactionSpy).toHaveBeenCalled()
   })
 
   it('should bubble up failures from writer insert pages', async () => {
@@ -132,6 +145,7 @@ describe('ProcessPdfUseCase', () => {
       expect(result.value).toBeInstanceOf(Error)
       expect(result.value.message).toBe('insert failure')
     }
+    expect(deps.writer.runInTransactionSpy).toHaveBeenCalled()
   })
 
   it('should bubble up failures from repository upsert', async () => {
@@ -158,5 +172,6 @@ describe('ProcessPdfUseCase', () => {
       expect(result.value).toBeInstanceOf(Error)
       expect(result.value.message).toBe('upsert failure')
     }
+    expect(deps.writer.runInTransactionSpy).toHaveBeenCalled()
   })
 })

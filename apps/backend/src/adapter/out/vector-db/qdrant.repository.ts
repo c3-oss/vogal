@@ -5,8 +5,8 @@ import { QdrantClient } from '@qdrant/js-client-rest'
 import { type Failable, type Option, err, none, ok, some } from '@c3-oss/functional'
 import type { Optional } from '@c3-oss/types'
 
-import { BaseAdapter } from '~adapter/shared/base-adapter.js'
 // internal
+import { BaseAdapter } from '~adapter/shared/base-adapter.js'
 import type {
   IndexedPointDTO,
   IndexedPointPayloadDTO,
@@ -14,6 +14,7 @@ import type {
   PaginationQueryDTO,
   SearchFilterDTO,
 } from '~application/dto/index.js'
+import { createGenericBreaker } from '~infra/circuit-breaker.js'
 import { env } from '~infra/config/env.js'
 import { VErrorExternalServiceUnavailable } from '~infra/errors/index.js'
 import type { ListDocumentsResultDTO, VogalRepositoryPort } from '~port/index.js'
@@ -27,21 +28,23 @@ export interface QdrantSearchResult {
 
 export class QdrantRepository extends BaseAdapter implements VogalRepositoryPort {
   private readonly client: QdrantClient
+  private readonly circuitBreaker
 
   public constructor() {
     super()
     this.invariant({ url: env.QDRANT_URL })
     this.client = new QdrantClient({ url: env.QDRANT_URL, apiKey: env.QDRANT_API_KEY })
+    this.circuitBreaker = createGenericBreaker()
   }
 
   public async initCollection(collectionName: string): Promise<Option<Error>> {
     try {
-      await this.client.getCollection(collectionName)
+      await this.circuitBreaker.fire(() => this.client.getCollection(collectionName))
       return none
     } catch {
       try {
         const vectors = { size: 1536, distance: 'Cosine' as const }
-        await this.client.createCollection(collectionName, { vectors })
+        await this.circuitBreaker.fire(() => this.client.createCollection(collectionName, { vectors }))
         return none
       } catch (error) {
         return some(
@@ -56,7 +59,7 @@ export class QdrantRepository extends BaseAdapter implements VogalRepositoryPort
 
   public async deleteCollection(collectionName: string): Promise<Option<Error>> {
     try {
-      await this.client.deleteCollection(collectionName)
+      await this.circuitBreaker.fire(() => this.client.deleteCollection(collectionName))
       return none
     } catch (error) {
       return some(
@@ -70,16 +73,18 @@ export class QdrantRepository extends BaseAdapter implements VogalRepositoryPort
 
   public async deleteDocumentVectors(documentId: string, collectionName: string): Promise<Option<Error>> {
     try {
-      await this.client.delete(collectionName, {
-        filter: {
-          must: [
-            {
-              key: 'documentId',
-              match: { value: documentId },
-            },
-          ],
-        },
-      })
+      await this.circuitBreaker.fire(() =>
+        this.client.delete(collectionName, {
+          filter: {
+            must: [
+              {
+                key: 'documentId',
+                match: { value: documentId },
+              },
+            ],
+          },
+        }),
+      )
       return none
     } catch (error) {
       return some(
@@ -94,7 +99,7 @@ export class QdrantRepository extends BaseAdapter implements VogalRepositoryPort
   public async upsert(points: IndexedPointDTO[], collectionName: string): Promise<Option<Error>> {
     try {
       // @ts-expect-error qdrant types are permissive enough to allow this
-      await this.client.upsert(collectionName, { wait: true, points })
+      await this.circuitBreaker.fire(() => this.client.upsert(collectionName, { wait: true, points }))
       return none
     } catch (error) {
       return some(
@@ -113,21 +118,23 @@ export class QdrantRepository extends BaseAdapter implements VogalRepositoryPort
     collectionName: string,
   ): Promise<Failable<QdrantSearchResult[]>> {
     try {
-      const result = await this.client.search(collectionName, {
-        vector,
-        limit,
-        with_payload: true,
-        filter: filterParams?.documentId
-          ? {
-              must: [
-                {
-                  key: 'documentId',
-                  match: { value: filterParams.documentId },
-                },
-              ],
-            }
-          : undefined,
-      })
+      const result = await this.circuitBreaker.fire(() =>
+        this.client.search(collectionName, {
+          vector,
+          limit,
+          with_payload: true,
+          filter: filterParams?.documentId
+            ? {
+                must: [
+                  {
+                    key: 'documentId',
+                    match: { value: filterParams.documentId },
+                  },
+                ],
+              }
+            : undefined,
+        }),
+      )
 
       return ok(
         result.map((hit) => ({
@@ -145,7 +152,9 @@ export class QdrantRepository extends BaseAdapter implements VogalRepositoryPort
     collectionName: string,
   ): Promise<Failable<PaginatedResultDTO<ListDocumentsResultDTO>>> {
     try {
-      const scroll = await this.client.scroll(collectionName, { limit: 1000, with_payload: true })
+      const scroll = await this.circuitBreaker.fire(() =>
+        this.client.scroll(collectionName, { limit: 1000, with_payload: true }),
+      )
       const documents = new Map<string, ListDocumentsResultDTO>()
 
       for (const pt of scroll.points) {

@@ -46,6 +46,10 @@ export const env = createEnv({
     VOGAL_STORAGE_FIREBASE_CLIENT_EMAIL: z.string().email().optional(),
     VOGAL_STORAGE_FIREBASE_PRIVATE_KEY: z.string().optional(),
     VOGAL_STORAGE_FIREBASE_BUCKET: z.string().optional(),
+    VOGAL_CB_ENABLED: z
+      .enum(['true', 'false'])
+      .default(process.env.NODE_ENV === 'test' ? 'false' : 'true')
+      .transform((v) => v === 'true'),
   },
   runtimeEnv: process.env,
   emptyStringAsUndefined: true,

@@ -6,7 +6,7 @@ import { type Failable, type Option, err, none, ok, some } from '@c3-oss/functio
 import { errorWrapper } from '@c3-oss/typeguard'
 
 // internal
-import type { DB } from '~adapter/out/db/pgconn.js'
+import type { DBClient } from '~adapter/out/db/pgconn.js'
 import type { DocumentFileDTO, DocumentFileInsertDTO } from '~application/dto/document-file.dto.js'
 import { VErrorUnknown } from '~infra/errors/index.js'
 import { BaseRepository } from '../base-repository.js'
@@ -15,9 +15,9 @@ import { tableDocumentFiles } from '../schema.js'
 // ---------------------------------------------------------------------------------------------------------------------
 
 export class DocumentFileRepository extends BaseRepository {
-  private readonly db: DB
+  private readonly db: DBClient
 
-  public constructor(db: DB) {
+  public constructor(db: DBClient) {
     super()
 
     this.invariant(db, { skipKeys: true })
