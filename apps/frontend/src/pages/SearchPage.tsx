@@ -3,7 +3,6 @@ import { type FormEvent, type KeyboardEvent, useState } from 'react'
 import { PageHeader } from '../components/PageHeader.js'
 import { Badge } from '../components/ui/badge.js'
 import { Button } from '../components/ui/button.js'
-import { Input } from '../components/ui/input.js'
 import { Label } from '../components/ui/label.js'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select.js'
 import { Skeleton } from '../components/ui/skeleton.js'
@@ -70,35 +69,35 @@ export function SearchPage() {
             className="min-h-[80px] resize-none"
           />
         </div>
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="w-60 space-y-1.5">
-            <Label className="text-xs font-medium">Workspace</Label>
-            <Select value={workspaceId} onValueChange={setWorkspaceId}>
-              <SelectTrigger className="h-9">
-                <SelectValue placeholder="All workspaces" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL_WORKSPACES}>All workspaces</SelectItem>
-                {workspaces?.items.map((workspace) => (
-                  <SelectItem key={workspace.id} value={workspace.id}>
-                    {workspace.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="w-20 space-y-1.5">
-            <Label htmlFor="limit" className="text-xs font-medium">
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={workspaceId} onValueChange={setWorkspaceId}>
+            <SelectTrigger className="h-9 w-56 text-sm">
+              <SelectValue placeholder="All workspaces" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_WORKSPACES}>All workspaces</SelectItem>
+              {workspaces?.items.map((workspace) => (
+                <SelectItem key={workspace.id} value={workspace.id}>
+                  {workspace.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="flex h-9 items-stretch overflow-hidden rounded-lg border border-input bg-background/60 shadow-sm focus-within:ring-2 focus-within:ring-ring">
+            <label
+              htmlFor="limit"
+              className="flex select-none items-center border-r border-border px-3 text-xs text-muted-foreground"
+            >
               Limit
-            </Label>
-            <Input
+            </label>
+            <input
               id="limit"
               type="number"
               min="1"
               max="20"
               value={limit}
               onChange={(event) => setLimit(Number.parseInt(event.target.value) || 1)}
-              className="h-9"
+              className="w-14 bg-transparent px-2 text-sm tabular-nums text-foreground outline-none"
             />
           </div>
           <Button type="submit" size="sm" disabled={isLoading || !query.trim()} className="ml-auto h-9">
