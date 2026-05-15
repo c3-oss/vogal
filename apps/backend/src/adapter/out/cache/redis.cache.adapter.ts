@@ -85,9 +85,12 @@ export class RedisCacheAdapter extends BaseAdapter implements CachePort {
   public async delByPattern(pattern: string): Promise<number> {
     let deleted = 0
     try {
-      for await (const key of this.client.scanIterator({ MATCH: pattern, COUNT: 1000 })) {
-        await this.client.del(String(key))
-        deleted++
+      // node-redis v5 yields string[] (batches); v4 yielded single strings. Handle both.
+      for await (const batch of this.client.scanIterator({ MATCH: pattern, COUNT: 1000 })) {
+        const keys = Array.isArray(batch) ? batch : [batch as unknown as string]
+        if (keys.length === 0) continue
+        await this.client.del(keys)
+        deleted += keys.length
       }
     } catch (err) {
       this.log.warn({ err, pattern }, 'Redis SCAN/DEL failed')

@@ -203,7 +203,25 @@ describe('RedisCacheAdapter', () => {
   })
 
   describe('delByPattern', () => {
-    it('should delete keys matching pattern', async () => {
+    it('should delete keys when scanIterator yields batches (node-redis v5)', async () => {
+      mockClient.scanIterator.mockReturnValue({
+        async *[Symbol.asyncIterator]() {
+          yield ['key1', 'key2']
+          yield ['key3']
+        },
+      })
+      mockClient.del.mockResolvedValue(1)
+
+      const adapter = new RedisCacheAdapter({ logger: mockLogger, url: 'redis://localhost' })
+      const deleted = await adapter.delByPattern('test:*')
+
+      expect(mockClient.scanIterator).toHaveBeenCalledWith({ MATCH: 'test:*', COUNT: 1000 })
+      expect(mockClient.del).toHaveBeenNthCalledWith(1, ['key1', 'key2'])
+      expect(mockClient.del).toHaveBeenNthCalledWith(2, ['key3'])
+      expect(deleted).toBe(3)
+    })
+
+    it('should delete keys when scanIterator yields single strings (node-redis v4)', async () => {
       const mockKeys = ['key1', 'key2', 'key3']
       mockClient.scanIterator.mockReturnValue({
         async *[Symbol.asyncIterator]() {
@@ -217,9 +235,25 @@ describe('RedisCacheAdapter', () => {
       const adapter = new RedisCacheAdapter({ logger: mockLogger, url: 'redis://localhost' })
       const deleted = await adapter.delByPattern('test:*')
 
-      expect(mockClient.scanIterator).toHaveBeenCalledWith({ MATCH: 'test:*', COUNT: 1000 })
       expect(mockClient.del).toHaveBeenCalledTimes(3)
       expect(deleted).toBe(3)
+    })
+
+    it('should skip empty batches without calling del', async () => {
+      mockClient.scanIterator.mockReturnValue({
+        async *[Symbol.asyncIterator]() {
+          yield []
+          yield ['key1']
+        },
+      })
+      mockClient.del.mockResolvedValue(1)
+
+      const adapter = new RedisCacheAdapter({ logger: mockLogger, url: 'redis://localhost' })
+      const deleted = await adapter.delByPattern('test:*')
+
+      expect(mockClient.del).toHaveBeenCalledTimes(1)
+      expect(mockClient.del).toHaveBeenCalledWith(['key1'])
+      expect(deleted).toBe(1)
     })
 
     it('should return 0 when no keys match pattern', async () => {
