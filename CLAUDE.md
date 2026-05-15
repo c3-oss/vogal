@@ -1,250 +1,112 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Read `AGENTS.md` first. This file adds Claude-specific working notes for the Vogal repository.
 
-## Monorepo Commands
+## Runtime
 
-This is a TypeScript monorepo using **pnpm workspaces** and **Turborepo**.
+Use the repository Devbox environment when possible:
 
-### Common Development Commands
-
-**Building:**
 ```bash
-# Build all packages (at root)
+devbox shell
+pnpm install
+```
+
+The workspace expects Node `>=24` and pnpm via Corepack/packageManager. Avoid npm or yarn in this repository.
+
+## Common Commands
+
+```bash
+# Install all workspace dependencies
+pnpm install
+
+# Build all workspaces through Turbo
 pnpm build
+pnpm turbo run build
 
-# Build specific workspace (run from workspace directory)
-cd apps/backend
-pnpm build
+# Backend
+pnpm --filter @c3-oss/vogal-backend start
+pnpm --filter @c3-oss/vogal-backend typecheck
+pnpm --filter @c3-oss/vogal-backend lint
+pnpm --filter @c3-oss/vogal-backend test
+pnpm --filter @c3-oss/vogal-backend test:e2e
+pnpm --filter @c3-oss/vogal-backend db:generate
+pnpm --filter @c3-oss/vogal-backend db:migrate
 
-# Build includes typecheck + bundle
-pnpm typecheck  # Type checking only
-pnpm bundle     # Bundle only
+# Frontend
+pnpm --filter @c3-oss/vogal-frontend start
+pnpm --filter @c3-oss/vogal-frontend typecheck
+pnpm --filter @c3-oss/vogal-frontend lint
 ```
 
-**Linting:**
-```bash
-# Lint with Biome
-pnpm lint
+## Claude and Agent Workflows
 
-# Auto-fix issues
-pnpm lint:fix
+Ralph Loop Governor assets are present in this repo:
 
-# Fix including unsafe fixes
-pnpm lint:fix-unsafe
-```
+- `.claude/agents`: Claude subagents.
+- `.claude/commands`: Claude command prompts already maintained by the project.
+- `.codex/agents`: Codex subagents.
+- `.codex/skills`: Codex workflow skills.
+- `.codex/prompts`: reusable prompt templates.
+- `docs/ralph-loop-governor.md`: imported Ralph workflow documentation.
 
-**Testing:**
-```bash
-# Backend tests
-cd apps/backend
-
-# Unit tests
-pnpm test
-pnpm test:coverage
-
-# E2E tests (uses PGLite)
-pnpm test:e2e
-pnpm test:e2e:coverage
-
-# Run all checks (typecheck + bundle + test + lint)
-pnpm check-all
-```
-
-**Database (Backend):**
-```bash
-cd apps/backend
-
-# Generate migrations
-pnpm db:generate
-
-# Run migrations
-pnpm db:migrate
-
-# Push schema to DB
-pnpm db:push
-```
-
-**Running Applications:**
-```bash
-# Backend (uses dotenv-expand)
-cd apps/backend
-pnpm start
-
-# Frontend (Vite dev server)
-cd apps/frontend
-pnpm start
-```
-
-### Package Modification Workflow
-
-When modifying code in `packages/` or `apps/`, follow this order:
-1. `pnpm lint:fix` - Fix linting issues
-2. `pnpm build` - Ensure it builds successfully
-3. Fix any errors before proceeding
-
-Turborepo handles dependency ordering automatically via `^build` dependencies.
+When updating workflow instructions, keep Claude and Codex assets semantically aligned. Do not duplicate a Codex skill into a Claude-only location unless the target tool needs a different file format.
 
 ## Architecture
 
-### Hexagonal Architecture (Ports & Adapters)
+The backend implements hexagonal architecture under `apps/backend/src`:
 
-The backend (`apps/backend/src/`) implements hexagonal architecture with strict separation of concerns:
-
-```
+```text
 core/
   application/
-    usecase/        # Business logic (ProcessPDF, Search, CRUD)
-    port/           # Interface contracts for external services
-    dto/            # Data Transfer Objects
+    usecase/        # Business workflows
+    port/           # Interface contracts
+    dto/            # Data transfer objects
 adapter/
-  in/               # Input adapters (HTTP, tRPC)
-    http/           # Fastify REST endpoints
-    trpc/           # Type-safe RPC procedures
-    shared/         # Dependency injection (WiringContext)
-  out/              # Output adapters (implementations)
-    db/             # PostgreSQL + Drizzle ORM
-    vector-db/      # Qdrant with caching layer
-    ai/             # OpenAI embeddings & normalization
-    storage/        # S3 & Firebase implementations
-    cache/          # Redis adapter
-    background/     # Event-driven saga orchestration
+  in/               # HTTP and tRPC input adapters
+  out/              # DB, vector DB, AI, storage, cache, background adapters
 infra/
-  config/           # Environment & configuration
-  errors/           # Custom error hierarchy (VError)
+  config/           # Environment and configuration
+  errors/           # VError hierarchy
   pdf/              # PDF parsing utilities
 ```
 
-**Key Ports:**
-- `vogal-repository.port.ts` - Vector database abstraction (Qdrant)
-- `storage-provider.port.ts` - Cloud storage abstraction
-- `embedder.port.ts` - Text embedding service
-- `cache.port.ts` - Cache abstraction
-- `background-processing.port.ts` - Async job processing
+Important conventions:
 
-### Domain Model
+- `WiringContext` composes concrete adapters and use cases.
+- Use cases extend the existing base patterns and define typed dependency contracts.
+- Ports stay in the core layer; adapters implement those ports.
+- External failures should be wrapped in domain errors or `Failable<T>` results.
+- Background document processing follows the existing saga/event strategy.
 
-Core entities in the document intelligence platform:
-- **Workspace** - Multi-tenant container
-- **User** - User accounts per workspace
-- **Document** - Uploaded files (PDFs)
-- **DocumentPage** - Extracted pages from documents
-- **DocumentMetadata** - Extracted metadata (title, author)
-- **DocumentUpload** - Upload tracking with saga states: `pending` → `storage_upload` → `file_reference` → `content_indexed` → `finalized`
-- **VectorPoints** - Embeddings in Qdrant for semantic search
+## Domain Model
 
-### Document Processing Flow
+Core entities include:
 
-1. PDF uploaded via HTTP/tRPC
-2. Stored in cloud storage (S3/Firebase)
-3. PDF parsed into pages and text
-4. Text normalized using OpenAI
-5. Embeddings generated (OpenAI)
-6. Indexed in Qdrant vector DB
-7. Background saga orchestrates async steps
+- `Workspace`: multi-tenant container.
+- `User`: workspace user account.
+- `Document`: uploaded file.
+- `DocumentPage`: parsed document page.
+- `DocumentMetadata`: extracted metadata.
+- `DocumentUpload`: upload state machine from pending through finalized.
+- `VectorPoints`: semantic-search embeddings in Qdrant.
 
-### Architectural Patterns
+## Document Processing Flow
 
-**Dependency Injection:**
-- `WiringContext` in `adapter/in/shared/wiring.ts` orchestrates the dependency graph
-- All adapters receive dependencies through constructors
-- Use cases define `Deps` interface for required services
+1. PDF upload enters through HTTP or tRPC.
+2. Storage adapter writes the file to S3/Firebase-compatible storage.
+3. PDF parser extracts pages and text.
+4. AI adapter normalizes content and generates embeddings.
+5. Qdrant adapter indexes vectors.
+6. Background processing coordinates long-running steps outside request/response flow.
 
-**Error Handling:**
-- Custom `VError` base class with structured error codes (`VERR` enum)
-- Result types use `Failable<T> = Either<Error, T>` from `@c3-oss/functional`
-- Specific error types: `VErrorProcessingFailed`, `VErrorRateLimited`, `VErrorExternalServiceUnavailable`
+## Dependency Notes
 
-**Use Case Pattern:**
-- All use cases extend `BaseUseCase`
-- Each receives typed `Deps` interface
-- `invariant()` validates dependencies on construction
-- Returns `Option<Error>` or `Failable<T>`
+The project depends on C3 OSS packages for functional results, logging, type guards, Drizzle ULIDs, and shared configs. Keep shared config peer ranges in mind before major upgrades, especially Biome.
 
-**Repository Pattern:**
-- Base class `BaseRepository extends BaseAdapter`
-- Caching repositories wrap base repositories (decorator pattern)
-- Query results return `Failable<T>`
+## Working Rules
 
-**Background Processing:**
-- `EventEmitterBackgroundStrategy` implements saga pattern
-- Separates async operations from request-response cycle
-- Orchestrates multi-step document processing
-
-## Key Dependencies
-
-**Backend:**
-- **Fastify** - HTTP server with plugins (CORS, Helmet, Multipart)
-- **tRPC** - Type-safe RPC framework
-- **Drizzle ORM** - PostgreSQL ORM with migrations
-- **Qdrant** - Vector database for semantic search
-- **OpenAI** - Embeddings and text processing
-- **Redis** - Caching layer
-- **AWS S3 / Firebase Storage** - Cloud storage providers
-- **PGLite** - In-memory Postgres for E2E tests
-- **Vitest** - Unit and E2E testing
-
-**Frontend:**
-- **React 19** with TypeScript
-- **Vite** - Build tool and dev server
-- **TailwindCSS 4** - Styling
-- **Radix UI** - Component primitives
-- **tRPC + TanStack Query** - API client
-- **React Hook Form + Zod** - Form validation
-- **React Router** - Routing
-
-**Shared Tooling:**
-- **Biome** - Linting and formatting
-- **Turborepo** - Build orchestration
-- **pnpm** - Package manager (v10.8.1)
-- **TypeScript 5.9** - Type checking
-- **Husky** - Git hooks
-- **Commitizen + Commitlint** - Conventional commits
-
-## C3 Internal Packages
-
-The codebase uses C3 OSS utilities:
-- `@c3-oss/functional` - Result/Option/Either types
-- `@c3-oss/logger` - Structured logging
-- `@c3-oss/typeguard` - Runtime type checking
-- `@c3-oss/drizzle-ulid` - ULID support for Drizzle
-- `@c3-oss/config-*` - Shared configs (Biome, TypeScript, Vitest, tsup)
-
-## Testing Strategy
-
-**Unit Tests:**
-- Test individual use cases and adapters
-- Mock external dependencies (ports)
-- Run with `pnpm test`
-
-**E2E Tests:**
-- Use PGLite (in-memory Postgres) via `__USE_PGLITE=1`
-- Test full workflows through HTTP/tRPC endpoints
-- Run with `pnpm test:e2e`
-
-**Coverage:**
-- Generate coverage reports with `pnpm test:coverage` or `pnpm test:e2e:coverage`
-- Configured via Vitest with V8 provider
-
-## Important Conventions
-
-**When modifying adapters:**
-- Ensure ports (interfaces) remain stable
-- Implementations should be swappable
-- Test with dependency injection in mind
-
-**When adding use cases:**
-- Extend `BaseUseCase`
-- Define `Deps` interface for required services
-- Implement `invariant()` for dependency validation
-- Return `Failable<T>` or `Option<Error>`
-
-**When working with errors:**
-- Use `VError` hierarchy for domain errors
-- Add new error codes to `VERR` enum if needed
-- Wrap external errors in `Failable<T>`
-
-**When modifying database schema:**
-- Update Drizzle schema in `adapter/out/db/models/`
-- Run `pnpm db:generate` to create migrations
-- Test migrations with `pnpm db:migrate`
+- Prefer package-scoped commands with `pnpm --filter`.
+- Keep generated artifacts out of review unless they are the intended output.
+- For schema work, update Drizzle models and generate migrations intentionally.
+- For UI work, include screenshots or describe visual changes in PR notes.
+- For dependency updates, run install under the Devbox Node version so native packages are built for the expected runtime.

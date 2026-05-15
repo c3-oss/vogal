@@ -1,23 +1,75 @@
 # Repository Guidelines
 
-## Project Structure & Module Organization
-Vogal is a pnpm workspace with encapsulated apps. The Fastify backend lives in `apps/backend/src`, split into `adapter`, `core`, and `infra` layers; database models stay in `apps/backend/dbml`, and long-form references in `apps/backend/handbook`. The React client sits in `apps/frontend/src`, with shared primitives under `components`, feature pages in `pages`, and TRPC helpers in `utils`. Generated bundles land in each app’s `dist` directory, while end-to-end fixtures are isolated in `apps/backend/coverage-e2e` and uploads under `apps/backend/uploads`.
+## Project Shape
+Vogal is a pnpm workspace with two main apps:
 
-## Build, Test, and Development Commands
-- `pnpm install` — install workspace dependencies (Node 22+ required).
-- `pnpm --filter @c3-oss/vogal-backend start` — boot the API in watch mode with SWC.
-- `pnpm --filter @c3-oss/vogal-frontend start` — launch the Vite dev server.
-- `pnpm turbo run build` — type-check and bundle every workspace using the Turbo graph.
-- `pnpm --filter @c3-oss/vogal-backend db:migrate` — apply Drizzle migrations (env vars must be loaded).
+- `apps/backend`: Fastify + tRPC API using hexagonal architecture. Runtime code is under `src`, Drizzle models/migrations live under `src/adapter/out/db`, DBML references live in `dbml`, and long-form backend docs live in `handbook`.
+- `apps/frontend`: React + Vite client. UI primitives are under `src/components`, route pages under `src/pages`, API helpers under `src/utils`, and styles beside their consumers.
 
-## Coding Style & Naming Conventions
-All TypeScript is linted and formatted with Biome (`@c3-oss/config-biome`), enforcing 2-space indentation, single quotes, and sorted imports. Run `pnpm --filter <package> lint` before pushing; resolve straightforward issues with `lint:fix` and leave risky rewrites to reviewers. Backend files use PascalCase for classes, camelCase for functions and variables, and maintain `~` path aliases as defined in `tsconfig.json`. React components reside in PascalCase files (e.g., `DocumentsPage.tsx`), and CSS lives beside usage in `styles.css`.
+Generated output belongs in each app's `dist` directory. Keep uploaded files and large artifacts out of commits.
 
-## Testing Guidelines
-Vitest powers both unit and integration suites. Execute `pnpm --filter @c3-oss/vogal-backend test` for deterministic unit tests or `pnpm --filter @c3-oss/vogal-backend test:e2e` to run TRPC smoke tests against the in-memory PGLite stack (the script sets `__USE_PGLITE=1`). Prefer placing specs alongside implementations in `__tests__` folders. Aim to keep coverage above the default V8 thresholds exposed by `test:coverage`; add fixtures under `apps/backend/test` when mocking external services.
+## Toolchain
 
-## Commit & Pull Request Guidelines
-Commits follow Conventional Commits with enforced scopes. Use scopes that match workspace folders (e.g., `feat(backend): …`, `fix(frontend): …`, `chore(workspace): …`) to satisfy `commitlint.config.js`. Run `pnpm commit` for an interactive prompt when in doubt. Pull requests should describe the user-facing impact, note any schema or env changes, and link GitHub issues. Include before/after screenshots for UI tweaks and reference Vitest output or coverage deltas for backend work.
+- Use Devbox for the expected local runtime: `devbox shell`.
+- Node is pinned through Devbox as `nodejs@24`; repository engines require Node `>=24`.
+- pnpm is managed through `packageManager` and Corepack. Use the checked-in lockfile, not npm or yarn.
+- Biome remains pinned to the `@c3-oss/config-biome` peer range. Do not upgrade it independently unless the shared config supports the newer major.
 
-## Environment & Safety Notes
-Copy `.env.example` (when available) into `.env.local` before starting services, and avoid checking secrets into Git. Docker compose files under `apps/backend` provision Postgres and workers for full-stack testing; prune containers when finished. Keep large artifacts, PDFs, and uploaded files out of commits—those paths are ignored locally but still review your diff before pushing.
+## Common Commands
+
+- `pnpm install` - install workspace dependencies.
+- `pnpm --filter @c3-oss/vogal-backend start` - start the API in watch mode.
+- `pnpm --filter @c3-oss/vogal-frontend start` - start the Vite frontend.
+- `pnpm turbo run build` - type-check and bundle the workspace graph.
+- `pnpm --filter @c3-oss/vogal-backend test` - run backend unit tests.
+- `pnpm --filter @c3-oss/vogal-backend test:e2e` - run backend E2E tests with PGLite.
+- `pnpm --filter @c3-oss/vogal-backend db:migrate` - apply Drizzle migrations with env vars loaded.
+
+## Coding Style
+
+All TypeScript is linted and formatted with Biome via `@c3-oss/config-biome`:
+
+- 2-space indentation.
+- Single quotes.
+- Sorted imports.
+- PascalCase for classes and React component files.
+- camelCase for functions and variables.
+- Preserve backend `~` path aliases from `tsconfig.json`.
+
+Run package-local lint commands before submitting code. Use `lint:fix` for straightforward formatting/import fixes and review unsafe rewrites manually.
+
+## Architecture Expectations
+
+The backend follows ports-and-adapters boundaries:
+
+- `core/application/usecase`: business workflows.
+- `core/application/port`: interface contracts.
+- `adapter/in`: HTTP and tRPC entrypoints.
+- `adapter/out`: database, vector DB, AI, storage, cache, and background processing implementations.
+- `infra`: config, errors, and infrastructure helpers.
+
+Use dependency injection through `WiringContext`. Keep use cases independent from concrete adapters. Domain failures should use the `VError` hierarchy and `Failable<T>` / `Option<Error>` patterns already present in the codebase.
+
+## Testing Guidance
+
+Vitest powers unit and integration coverage. Prefer specs beside implementations in `__tests__` folders. E2E tests should use the existing PGLite path instead of requiring an external Postgres when possible. Add fixtures under `apps/backend/test` when mocking external services.
+
+## Agent Assets
+
+This repository includes agent workflow assets imported from Ralph Loop Governor:
+
+- `.codex/skills`: Codex skills for planning, execution loops, review, sync, and validation workflows.
+- `.codex/agents`: Codex subagent definitions.
+- `.codex/prompts`: reusable prompt templates.
+- `.claude/agents`: Claude-compatible agent definitions.
+- `docs/ralph-loop-governor.md`: overview and operational notes for the Ralph loop workflow.
+
+When editing agent instructions, keep `AGENTS.md`, `CLAUDE.md`, `.codex/skills`, and `.claude/agents` aligned. Prefer updating the source instruction file and syncing rather than hand-maintaining divergent copies.
+
+## Commit and PR Guidelines
+
+Commits follow Conventional Commits with scoped messages, for example `feat(backend): add document search filter` or `chore(workspace): update dependencies`. Use scopes that map to workspace folders where practical. PRs should describe user-facing impact, schema/env changes, linked issues, validation output, and screenshots for UI changes.
+
+## Environment and Safety Notes
+
+Copy sample env files before starting services and never commit secrets. Docker compose files under `apps/backend` provision local infrastructure for full-stack testing. Review diffs before committing generated files, lockfile changes, uploads, PDFs, or dependency updates.
