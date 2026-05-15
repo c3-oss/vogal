@@ -18,7 +18,11 @@ const methods = {
   scroll: vi.fn(),
 }
 
-vi.mock('@qdrant/js-client-rest', () => ({ QdrantClient: vi.fn(() => methods) }))
+vi.mock('@qdrant/js-client-rest', () => ({
+  QdrantClient: vi.fn(function QdrantClient() {
+    return methods
+  }),
+}))
 
 const mocked = () => methods
 

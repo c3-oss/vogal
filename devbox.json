@@ -5,7 +5,7 @@
     "hadolint@2.12.0",
     "jq@1.8.1",
     "just@1.42.4",
-    "nodejs@22.14.0",
+    "nodejs@24",
     "pm2@6.0.8",
     "shellcheck@0.10.0",
     "shfmt@3.12.0",

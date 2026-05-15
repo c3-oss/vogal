@@ -1,5 +1,5 @@
 // 3rd-party
-import { type ZodEnum, z } from 'zod'
+import { z } from 'zod'
 
 // ---------------------------------------------------------------------------------------------------------------------
 
@@ -28,7 +28,10 @@ export const ListQuerySchema = z
     return { limit, page, orderField, orderDirection }
   })
 
-export function buildOrderByEnum<const T extends readonly string[]>(fields: T): ZodEnum<[string, ...string[]]> {
-  const withDirections = [...fields, ...fields.map((f) => `-${f}`)] as unknown as [string, ...string[]]
+export function buildOrderByEnum<const T extends readonly [string, ...string[]]>(fields: T) {
+  const withDirections = [...fields, ...fields.map((f) => `-${f}`)] as [
+    T[number] | `-${T[number]}`,
+    ...(T[number] | `-${T[number]}`)[],
+  ]
   return z.enum(withDirections)
 }

@@ -7,9 +7,11 @@ import { OpenAINormalizer } from '../normalizer.adapter.js'
 // ---------------------------------------------------------------------------------------------------------------------
 
 vi.mock('openai', () => ({
-  default: vi.fn().mockImplementation(() => ({
-    chat: { completions: { create: vi.fn().mockRejectedValue(new Error('fail')) } },
-  })),
+  default: vi.fn().mockImplementation(function OpenAI() {
+    return {
+      chat: { completions: { create: vi.fn().mockRejectedValue(new Error('fail')) } },
+    }
+  }),
 }))
 
 describe('OpenAINormalizer', () => {

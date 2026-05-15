@@ -1,6 +1,5 @@
 // 3rd-party
 import type { FastifyReply as Reply, FastifyRequest as Request, FastifyError as ServerError } from 'fastify'
-import _ from 'lodash'
 import { ZodError } from 'zod'
 
 // internal
@@ -55,7 +54,11 @@ const zodErrorHandler = (reply: Reply, err: ZodError) =>
     reply,
     new VErrorInvalidInput({
       message: 'Input is invalid',
-      context: err.issues.map((i) => _.omit(i, 'fatal')),
+      context: err.issues.map((issue) => ({
+        code: issue.code,
+        message: issue.message,
+        path: issue.path.map(String),
+      })),
     }),
   )
 
