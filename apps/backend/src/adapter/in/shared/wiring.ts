@@ -4,10 +4,13 @@ import type { Logger } from '@c3-oss/logger'
 // internal - background
 import { EventEmitterBackgroundStrategy } from '~adapter/out/background/event-emitter.strategy.js'
 
+import { OpenAIChatPlanner } from '~out/ai/chat-planner.adapter.js'
+import { OpenAIChatAdapter } from '~out/ai/chat.adapter.js'
 // internal - adapters/out
 import { OpenAIEmbedder } from '~out/ai/embeddings.adapter.js'
 import { OpenAINormalizer } from '~out/ai/normalizer.adapter.js'
 import { RedisCacheAdapter } from '~out/cache/redis.cache.adapter.js'
+import { ChatRepository } from '~out/db/model/chat/chat.repository.js'
 import { DocumentUploadRepository } from '~out/db/model/document-uploads/document-upload.repository.js'
 import { DocumentWriteAdapter } from '~out/db/model/document/document-write.adapter.js'
 import { DocumentRepository } from '~out/db/model/document/document.repository.js'
@@ -17,6 +20,7 @@ import { CachingWorkspaceRepository } from '~out/db/model/workspace/workspace.ca
 import { WorkspaceRepository } from '~out/db/model/workspace/workspace.repository.js'
 import { db } from '~out/db/pgconn.js'
 import { createStorageProvider } from '~out/storage/index.js'
+import { KnowledgeSearchTool } from '~out/tools/knowledge-search.tool.js'
 import { CachingQdrantRepository } from '~out/vector-db/qdrant.caching.repository.js'
 import { QdrantRepository } from '~out/vector-db/qdrant.repository.js'
 
@@ -25,6 +29,9 @@ import { env } from '~infra/config/env.js'
 import { parsePDF } from '~infra/pdf/pdf.parser.js'
 import { chunkText } from '~infra/text-utils.js'
 
+import { GetChatMessagesUseCase } from '~usecase/chat/get-messages.js'
+import { SendMessageUseCase } from '~usecase/chat/send-message.js'
+import { StartChatUseCase } from '~usecase/chat/start-chat.js'
 // internal - use cases
 import { ProcessPdfUseCase } from '~usecase/document/process-pdf.js'
 import { SearchUseCase } from '~usecase/document/search.js'
@@ -42,6 +49,7 @@ import { GetWorkspacesByUserUseCase } from '~usecase/workspace/get-workspaces-by
 import { GetWorkspacesUseCase } from '~usecase/workspace/get-workspaces.js'
 import { UpdateWorkspaceUseCase } from '~usecase/workspace/update-workspace.js'
 
+import { ChatsController } from '~in/http/controllers/chats.controller.js'
 // internal - controllers
 import { DocumentStatusController } from '~in/http/controllers/document-status.controller.js'
 import { DocumentsController } from '~in/http/controllers/documents.controller.js'
@@ -57,6 +65,7 @@ export const initRepositories = (cache: RedisCacheAdapter | undefined, logger: L
   const baseQdrantRepo = new QdrantRepository()
   const baseUserRepo = new UserRepository(db)
   const baseWorkspaceRepo = new WorkspaceRepository(db)
+  const chatRepository = new ChatRepository(db)
 
   return {
     vectorRepository: cache ? new CachingQdrantRepository(baseQdrantRepo, cache) : baseQdrantRepo,
@@ -64,6 +73,7 @@ export const initRepositories = (cache: RedisCacheAdapter | undefined, logger: L
     workspaceRepository: cache ? new CachingWorkspaceRepository(baseWorkspaceRepo, cache) : baseWorkspaceRepo,
     documentRepository: new DocumentRepository(db),
     uploadsRepository: new DocumentUploadRepository(db),
+    chatRepository,
   }
 }
 
@@ -76,7 +86,7 @@ export const initUseCases = (
   const normalizer = new OpenAINormalizer()
   const writer = new DocumentWriteAdapter(db)
 
-  const { vectorRepository, userRepository, workspaceRepository, documentRepository } = repositories
+  const { vectorRepository, userRepository, workspaceRepository, documentRepository, chatRepository } = repositories
 
   const processor = new ProcessPdfUseCase({
     repository: vectorRepository,
@@ -108,6 +118,15 @@ export const initUseCases = (
     getWorkspacesByUser: new GetWorkspacesByUserUseCase({ workspaceRepository, userRepository, logger }),
     deleteWorkspace: new DeleteWorkspaceUseCase({ workspaceRepository, repository: vectorRepository, logger }),
     updateWorkspace: new UpdateWorkspaceUseCase({ workspaceRepository, logger }),
+    startChat: new StartChatUseCase({ chatRepository, workspaceRepository, logger }),
+    sendMessage: new SendMessageUseCase({
+      chatRepository,
+      chatLLM: new OpenAIChatAdapter(),
+      planner: new OpenAIChatPlanner(),
+      knowledgeTool: new KnowledgeSearchTool(new SearchUseCase({ embedder, repository: vectorRepository, logger })),
+      logger,
+    }),
+    getChatMessages: new GetChatMessagesUseCase({ chatRepository, logger }),
   }
 }
 
@@ -153,6 +172,9 @@ export const initControllers = (
     getWorkspacesByUser,
     deleteWorkspace,
     updateWorkspace,
+    startChat,
+    sendMessage,
+    getChatMessages,
   } = useCases
 
   const { vectorRepository, uploadsRepository } = repositories
@@ -184,6 +206,12 @@ export const initControllers = (
     updateWorkspace,
   })
 
+  const chatsController = new ChatsController({
+    startChat,
+    sendMessage,
+    getMessages: getChatMessages,
+  })
+
   return {
     healthController,
     uploadController,
@@ -192,6 +220,7 @@ export const initControllers = (
     documentStatusController,
     usersController,
     workspacesController,
+    chatsController,
   }
 }
 

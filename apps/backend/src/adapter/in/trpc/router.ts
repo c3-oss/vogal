@@ -2,6 +2,7 @@
 import { initTRPC } from '@trpc/server'
 import superjson from 'superjson'
 
+import { chatsRouter } from './procedures/chats.js'
 // internal
 import { documentsRouter } from './procedures/documents.js'
 import { healthRouter } from './procedures/health.js'
@@ -23,6 +24,7 @@ export function createAppRouter(deps: RouterDeps) {
     upload: uploadRouter(deps),
     users: usersRouter(deps),
     workspaces: workspacesRouter(deps),
+    chats: chatsRouter(deps),
   })
 }
 

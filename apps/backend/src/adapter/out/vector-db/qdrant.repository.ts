@@ -39,7 +39,7 @@ export class QdrantRepository extends BaseAdapter implements VogalRepositoryPort
 
   public async initCollection(collectionName: string): Promise<Option<Error>> {
     try {
-      await this.circuitBreaker.fire(() => this.client.getCollection(collectionName))
+      await this.client.getCollection(collectionName)
       return none
     } catch {
       try {

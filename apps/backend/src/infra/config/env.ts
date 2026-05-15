@@ -33,6 +33,8 @@ export const env = createEnv({
     VOGAL_COLLECTION_NAME: z.string().default('documents'),
     VOGAL_EMBEDDING_MODEL: z.string().default('text-embedding-3-small'),
     VOGAL_NORMALIZATION_MODEL: z.string().default('gpt-4o-mini'),
+    VOGAL_CHAT_MODEL: z.string().default('gpt-4o-mini'),
+    VOGAL_CHAT_PLANNER_MODEL: z.string().optional(),
     VOGAL_CHUNK_SIZE: stringNumberEnv(1000),
     VOGAL_CHUNK_OVERLAP: stringNumberEnv(200),
     REDIS_URL: z.string().url().optional(),

@@ -13,6 +13,7 @@ export const createHTTPRouter = (ctx: WiringContext) => (app: Server) => {
     documentStatusController,
     usersController,
     workspacesController,
+    chatsController,
   } = ctx.controllers
 
   app.post('/upload', uploadController.handle.bind(uploadController))
@@ -31,5 +32,8 @@ export const createHTTPRouter = (ctx: WiringContext) => (app: Server) => {
   app.get('/users/:userId/workspaces', workspacesController.getByUser.bind(workspacesController))
   app.put('/workspaces/:idExt', workspacesController.update.bind(workspacesController))
   app.delete('/workspaces/:idExt', workspacesController.delete.bind(workspacesController))
+  app.post('/workspaces/:workspaceId/chats', chatsController.start.bind(chatsController))
+  app.post('/chats/:chatIdExt/messages', chatsController.postMessage.bind(chatsController))
+  app.get('/chats/:chatIdExt/messages', chatsController.listMessages.bind(chatsController))
   app.get('/', healthController.handle.bind(healthController))
 }

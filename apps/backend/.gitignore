@@ -5,3 +5,4 @@ coverage-unit
 dist
 pdfs
 pgdata
+.volumes
