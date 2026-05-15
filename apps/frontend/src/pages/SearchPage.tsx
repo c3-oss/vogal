@@ -1,5 +1,5 @@
 import { FileSearch, Search } from 'lucide-react'
-import { type FormEvent, useState } from 'react'
+import { type FormEvent, type KeyboardEvent, useState } from 'react'
 import { PageHeader } from '../components/PageHeader.js'
 import { Badge } from '../components/ui/badge.js'
 import { Button } from '../components/ui/button.js'
@@ -24,11 +24,22 @@ export function SearchPage() {
     { enabled: false },
   )
 
-  const handleSearch = (event: FormEvent) => {
-    event.preventDefault()
+  const runSearch = () => {
     if (!query.trim()) return
     setHasSearched(true)
     refetch()
+  }
+
+  const handleSearch = (event: FormEvent) => {
+    event.preventDefault()
+    runSearch()
+  }
+
+  const handleQueryKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
+      event.preventDefault()
+      runSearch()
+    }
   }
 
   return (
@@ -37,19 +48,30 @@ export function SearchPage() {
 
       <form onSubmit={handleSearch} className="space-y-3">
         <div className="space-y-1.5">
-          <Label htmlFor="query" className="text-xs font-medium">
-            Query
-          </Label>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="query" className="text-xs font-medium">
+              Query
+            </Label>
+            <span className="text-[0.65rem] text-muted-foreground">
+              <kbd className="kbd-font rounded border border-border bg-muted px-1 py-0.5 text-[0.6rem]">Enter</kbd> to
+              search ·{' '}
+              <kbd className="kbd-font rounded border border-border bg-muted px-1 py-0.5 text-[0.6rem]">
+                Shift+Enter
+              </kbd>{' '}
+              for newline
+            </span>
+          </div>
           <Textarea
             id="query"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={handleQueryKeyDown}
             placeholder="Ask anything about the indexed knowledge base…"
             className="min-h-[80px] resize-none"
           />
         </div>
         <div className="flex flex-wrap items-end gap-3">
-          <div className="flex-1 min-w-[200px] space-y-1.5">
+          <div className="w-60 space-y-1.5">
             <Label className="text-xs font-medium">Workspace</Label>
             <Select value={workspaceId} onValueChange={setWorkspaceId}>
               <SelectTrigger className="h-9">
@@ -65,7 +87,7 @@ export function SearchPage() {
               </SelectContent>
             </Select>
           </div>
-          <div className="w-24 space-y-1.5">
+          <div className="w-20 space-y-1.5">
             <Label htmlFor="limit" className="text-xs font-medium">
               Limit
             </Label>
@@ -79,7 +101,7 @@ export function SearchPage() {
               className="h-9"
             />
           </div>
-          <Button type="submit" size="sm" disabled={isLoading || !query.trim()} className="h-9">
+          <Button type="submit" size="sm" disabled={isLoading || !query.trim()} className="ml-auto h-9">
             <Search className="h-3.5 w-3.5" /> {isLoading ? 'Searching…' : 'Search'}
           </Button>
         </div>
