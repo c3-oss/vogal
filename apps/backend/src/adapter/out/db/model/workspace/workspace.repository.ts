@@ -131,7 +131,7 @@ export class WorkspaceRepository extends BaseRepository {
       await this.db
         .update(tableWorkspaces)
         .set({ isDeleted: true, deletedAt: new Date() })
-        .where(eq(tableWorkspaces.idExt, idExt))
+        .where(and(eq(tableWorkspaces.idExt, idExt), eq(tableWorkspaces.isDeleted, false)))
 
       return none
     } catch (error) {
