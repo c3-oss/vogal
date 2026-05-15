@@ -1,14 +1,50 @@
+import { RefreshCw } from 'lucide-react'
+import { PageHeader } from '../components/PageHeader.js'
+import { Button } from '../components/ui/button.js'
+import { Skeleton } from '../components/ui/skeleton.js'
+import { cn } from '../lib/utils.js'
 import { trpc } from '../trpc.js'
 
+function StatusDot({ status }: { status: string | undefined }) {
+  const tone =
+    status === 'ok'
+      ? 'bg-success'
+      : status === 'degraded'
+        ? 'bg-warning'
+        : status === 'error'
+          ? 'bg-destructive'
+          : 'bg-muted-foreground'
+
+  return (
+    <span className="inline-flex items-center gap-1.5 text-sm">
+      <span className={cn('h-1.5 w-1.5 rounded-full', tone)} aria-hidden />
+      <span className="capitalize">{status ?? 'unknown'}</span>
+    </span>
+  )
+}
+
+function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return (
+    <div className="rounded-md border border-border bg-card px-4 py-3">
+      <div className="text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="mt-1 text-lg font-semibold tabular-nums">{value}</div>
+      {hint && <div className="text-xs text-muted-foreground">{hint}</div>}
+    </div>
+  )
+}
+
 export function HealthPage() {
-  const { data, isLoading, error, refetch } = trpc.health.get.useQuery()
+  const { data, isLoading, error, refetch, isFetching } = trpc.health.get.useQuery()
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="mb-4 inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent" />
-          <p className="text-gray-600">Loading health status...</p>
+      <div className="mx-auto w-full max-w-5xl">
+        <PageHeader title="Health" description="Runtime status and dependencies" />
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Skeleton className="h-16" />
+          <Skeleton className="h-16" />
+          <Skeleton className="h-16" />
+          <Skeleton className="h-16" />
         </div>
       </div>
     )
@@ -16,89 +52,95 @@ export function HealthPage() {
 
   if (error) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <div className="max-w-md rounded-lg bg-white p-8 shadow-lg">
-          <div className="mb-4 flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
-              <svg
-                className="h-6 w-6 text-red-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                role="img"
-                aria-label="Error icon"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900">Connection Error</h1>
+      <div className="mx-auto w-full max-w-5xl">
+        <PageHeader
+          title="Health"
+          description="Runtime status and dependencies"
+          actions={
+            <Button size="sm" variant="outline" onClick={() => refetch()} disabled={isFetching}>
+              <RefreshCw className={cn('h-3.5 w-3.5', isFetching && 'animate-spin')} /> Retry
+            </Button>
+          }
+        />
+        <div className="rounded-md border border-destructive/40 bg-destructive/5 p-4">
+          <div className="mb-2 flex items-center gap-2 text-sm">
+            <span className="h-1.5 w-1.5 rounded-full bg-destructive" aria-hidden />
+            <span className="font-medium text-destructive">Connection error</span>
           </div>
-          <p className="mb-6 text-gray-600">Failed to fetch health status from the server.</p>
-          <div className="mb-6 rounded bg-gray-100 p-4">
-            <p className="font-mono text-sm text-red-600">{error.message}</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => refetch()}
-            className="w-full rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition-colors hover:bg-blue-700"
-          >
-            Retry
-          </button>
+          <pre className="overflow-auto rounded-sm bg-background/60 p-2 text-xs leading-5 text-destructive">
+            {error.message}
+          </pre>
         </div>
       </div>
     )
   }
 
+  const memoryMb = data ? Math.round(data.metrics.memory.rss / 1024 / 1024) : 0
+  const heapMb = data ? Math.round(data.metrics.memory.heapUsed / 1024 / 1024) : 0
+  const uptime = data?.uptimeSeconds ?? 0
+  const uptimeLabel =
+    uptime < 60
+      ? `${Math.round(uptime)}s`
+      : uptime < 3600
+        ? `${Math.round(uptime / 60)}m`
+        : `${(uptime / 3600).toFixed(1)}h`
+
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="mx-auto max-w-4xl">
-        <div className="mb-8 flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-gray-900">Health Status</h1>
-          <button
-            type="button"
-            onClick={() => refetch()}
-            className="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition-colors hover:bg-blue-700"
-          >
-            Refresh
-          </button>
-        </div>
+    <div className="mx-auto w-full max-w-5xl">
+      <PageHeader
+        title="Health"
+        description={data ? `${data.environment} · v${data.version}` : 'Runtime status and dependencies'}
+        actions={
+          <Button size="sm" variant="outline" onClick={() => refetch()} disabled={isFetching}>
+            <RefreshCw className={cn('h-3.5 w-3.5', isFetching && 'animate-spin')} /> Refresh
+          </Button>
+        }
+      />
 
-        <div className="rounded-lg bg-white p-6 shadow-lg">
-          <div className="mb-6 flex items-center gap-3">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-              <svg
-                className="h-8 w-8 text-green-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                role="img"
-                aria-label="Success icon"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <div>
-              <h2 className="text-2xl font-semibold text-gray-900">System Operational</h2>
-              <p className="text-gray-600">All services are running normally</p>
-            </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Stat label="Status" value={data?.status ?? 'unknown'} hint={data?.environment} />
+        <Stat label="Uptime" value={uptimeLabel} hint="since boot" />
+        <Stat label="Memory RSS" value={`${memoryMb} MB`} hint={`${heapMb} MB heap`} />
+        <Stat
+          label="DB latency"
+          value={data?.dependencies.database.latencyMs ? `${data.dependencies.database.latencyMs.toFixed(1)} ms` : '—'}
+          hint={data?.dependencies.database.status}
+        />
+      </div>
+
+      <div className="mt-6 grid gap-4 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <div className="mb-2 flex items-center justify-between border-b border-border pb-1.5">
+            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Response</span>
+            <span className="text-[0.65rem] text-muted-foreground">{data?.timestamp}</span>
           </div>
-
-          <div className="border-t pt-6">
-            <h3 className="mb-4 text-lg font-semibold text-gray-900">Response Data</h3>
-            <pre className="overflow-auto rounded-lg bg-gray-100 p-4 font-mono text-sm text-gray-800">
-              {JSON.stringify(data, null, 2)}
-            </pre>
-          </div>
+          <pre className="kbd-font max-h-72 overflow-auto rounded-md border border-border bg-card p-3 text-xs leading-5 text-muted-foreground">
+            {JSON.stringify(data, null, 2)}
+          </pre>
         </div>
-
-        <div className="mt-6 rounded-lg bg-blue-50 p-4">
-          <p className="text-sm text-blue-800">
-            <strong>Endpoint:</strong>{' '}
-            <code className="rounded bg-blue-100 px-2 py-1">{import.meta.env.VITE_API_URL}</code>
-          </p>
-          <p className="mt-2 text-sm text-blue-800">
-            <strong>Procedure:</strong> <code className="rounded bg-blue-100 px-2 py-1">health.get</code>
-          </p>
+        <div>
+          <div className="mb-2 flex items-center border-b border-border pb-1.5">
+            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Dependencies</span>
+          </div>
+          <dl className="space-y-2 text-sm">
+            <div className="flex items-center justify-between">
+              <dt className="text-muted-foreground">database</dt>
+              <dd>
+                <StatusDot status={data?.dependencies.database.status} />
+              </dd>
+            </div>
+            {data?.dependencies.database.latencyMs !== undefined && (
+              <div className="flex items-center justify-between">
+                <dt className="text-muted-foreground">latency</dt>
+                <dd className="tabular-nums text-foreground">{data.dependencies.database.latencyMs.toFixed(2)} ms</dd>
+              </div>
+            )}
+            {data?.dependencies.database.error && (
+              <p className="mt-2 rounded-md border border-destructive/30 bg-destructive/5 px-2 py-1.5 text-xs text-destructive">
+                {data.dependencies.database.error}
+              </p>
+            )}
+          </dl>
         </div>
       </div>
     </div>

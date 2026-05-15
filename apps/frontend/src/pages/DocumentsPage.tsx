@@ -1,324 +1,341 @@
-import { useState } from 'react'
+import { FileText, Loader2, UploadCloud } from 'lucide-react'
+import { type FormEvent, useState } from 'react'
+import { PageHeader } from '../components/PageHeader.js'
+import { Toolbar } from '../components/Toolbar.js'
+import { Button } from '../components/ui/button.js'
+import { Input } from '../components/ui/input.js'
+import { Label } from '../components/ui/label.js'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select.js'
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '../components/ui/sheet.js'
+import { Skeleton } from '../components/ui/skeleton.js'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table.js'
+import { cn } from '../lib/utils.js'
 import { trpc } from '../trpc.js'
+
+const ALL_WORKSPACES = 'all'
+
+type DocStatus = 'pending' | 'processing' | 'failed' | 'ready' | 'queued' | 'completed' | string | undefined
+
+const fileToBase64 = async (file: File) => {
+  const bytes = new Uint8Array(await file.arrayBuffer())
+  const chunkSize = 0x8000
+  let binary = ''
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize))
+  }
+  return btoa(binary)
+}
+
+function StatusDot({ status }: { status: DocStatus }) {
+  const tone =
+    status === 'failed'
+      ? 'bg-destructive'
+      : status === 'ready' || status === 'completed'
+        ? 'bg-success'
+        : status === 'processing' || status === 'queued' || status === 'pending'
+          ? 'bg-warning'
+          : 'bg-muted-foreground'
+
+  return (
+    <span className="inline-flex items-center gap-1.5 text-xs">
+      <span className={cn('h-1.5 w-1.5 rounded-full', tone)} aria-hidden />
+      <span className="capitalize">{status ?? 'unknown'}</span>
+    </span>
+  )
+}
 
 export function DocumentsPage() {
   const [page, setPage] = useState(1)
-  const [selectedWorkspace, setSelectedWorkspace] = useState<string>('')
-  const [showUploadForm, setShowUploadForm] = useState(false)
+  const [selectedWorkspace, setSelectedWorkspace] = useState(ALL_WORKSPACES)
+  const [uploadOpen, setUploadOpen] = useState(false)
+  const [uploadWorkspace, setUploadWorkspace] = useState('')
   const [viewingStatus, setViewingStatus] = useState<string | null>(null)
 
   const utils = trpc.useUtils()
-
-  const { data: workspaces } = trpc.workspaces.getAll.useQuery({
-    limit: 100,
-    page: 1,
-    orderBy: 'name',
-  })
+  const { data: workspaces } = trpc.workspaces.getAll.useQuery({ limit: 100, page: 1, orderBy: 'name' })
+  const workspaceId = selectedWorkspace === ALL_WORKSPACES ? '' : selectedWorkspace
 
   const { data, isLoading, error } = trpc.documents.list.useQuery(
-    {
-      limit: 10,
-      page,
-      orderBy: '-filename',
-      workspaceId: selectedWorkspace || '',
-    },
-    {
-      enabled: !!selectedWorkspace,
-    },
+    { limit: 10, page, orderBy: '-filename', workspaceId },
+    { enabled: !!workspaceId },
   )
 
   const { data: statusData, isLoading: statusLoading } = trpc.documents.status.useQuery(
-    { idExt: viewingStatus || '' },
+    { idExt: viewingStatus ?? '' },
     { enabled: !!viewingStatus },
   )
 
   const uploadMutation = trpc.upload.pdfB64.useMutation({
     onSuccess: () => {
       utils.documents.list.invalidate()
-      setShowUploadForm(false)
+      setUploadOpen(false)
+      setUploadWorkspace('')
     },
   })
 
-  const handleUpload = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    const formData = new FormData(e.currentTarget)
+  const handleUpload = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const formData = new FormData(event.currentTarget)
     const file = formData.get('file') as File
-    const workspaceId = formData.get('workspaceId') as string
-
-    if (!file || !workspaceId) return
-
-    const buffer = await file.arrayBuffer()
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)))
+    const targetWorkspace = uploadWorkspace || selectedWorkspace
+    if (!file || !targetWorkspace || targetWorkspace === ALL_WORKSPACES) return
 
     uploadMutation.mutate({
-      body: { workspaceId },
+      body: { workspaceId: targetWorkspace },
       filename: file.name,
       contentType: 'application/pdf',
-      fileB64: base64,
+      fileB64: await fileToBase64(file),
     })
   }
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center">
-        <div className="text-center">
-          <div className="mb-4 inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent" />
-          <p className="text-gray-600">Loading documents...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="rounded-lg bg-red-50 p-4">
-        <p className="text-red-800">Error loading documents: {error.message}</p>
-      </div>
-    )
-  }
+  const totalResults = data?.meta.totalResults ?? 0
+  const totalPages = data?.meta.totalPages ?? 1
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900">Documents</h1>
-        <button
-          type="button"
-          onClick={() => setShowUploadForm(true)}
-          className="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition-colors hover:bg-blue-700"
-        >
-          Upload Document
-        </button>
-      </div>
+      <PageHeader
+        title="Documents"
+        description="Indexed PDFs per workspace"
+        actions={
+          <Button size="sm" onClick={() => setUploadOpen(true)}>
+            <UploadCloud className="h-3.5 w-3.5" /> Upload PDF
+          </Button>
+        }
+      />
 
-      <div className="mb-6">
-        <label htmlFor="workspace-filter" className="block text-sm font-medium text-gray-700">
-          Filter by Workspace
-        </label>
-        <select
-          id="workspace-filter"
-          value={selectedWorkspace}
-          onChange={(e) => setSelectedWorkspace(e.target.value)}
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:max-w-xs"
-        >
-          <option value="">All Workspaces</option>
-          {workspaces?.items.map((ws) => (
-            <option key={ws.id} value={ws.id}>
-              {ws.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {showUploadForm && (
-        <div className="mb-6 rounded-lg bg-white p-6 shadow">
-          <h2 className="mb-4 text-xl font-semibold">Upload PDF Document</h2>
-          <form onSubmit={handleUpload} className="space-y-4">
-            <div>
-              <label htmlFor="workspaceId" className="block text-sm font-medium text-gray-700">
-                Workspace
-              </label>
-              <select
-                id="workspaceId"
-                name="workspaceId"
-                required
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
-              >
-                <option value="">Select a workspace</option>
-                {workspaces?.items.map((ws) => (
-                  <option key={ws.id} value={ws.id}>
-                    {ws.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="file" className="block text-sm font-medium text-gray-700">
-                PDF File
-              </label>
-              <input
-                type="file"
-                id="file"
-                name="file"
-                accept=".pdf,application/pdf"
-                required
-                className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:rounded-md file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100"
-              />
-            </div>
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                disabled={uploadMutation.isPending}
-                className="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
-              >
-                {uploadMutation.isPending ? 'Uploading...' : 'Upload'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowUploadForm(false)}
-                className="rounded-lg bg-gray-200 px-4 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-300"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {viewingStatus && (
-        <div className="mb-6 rounded-lg bg-white p-6 shadow">
-          <h2 className="mb-4 text-xl font-semibold">Document Status</h2>
-          {statusLoading ? (
-            <div className="text-center">
-              <div className="mb-2 inline-block h-6 w-6 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent" />
-              <p className="text-sm text-gray-600">Loading status...</p>
-            </div>
-          ) : statusData ? (
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="font-medium">Status:</span>
-                <span
-                  className={`rounded px-2 py-1 text-sm ${
-                    statusData.status === 'completed'
-                      ? 'bg-green-100 text-green-800'
-                      : statusData.status === 'failed'
-                        ? 'bg-red-100 text-red-800'
-                        : 'bg-yellow-100 text-yellow-800'
-                  }`}
-                >
-                  {statusData.status}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="font-medium">Current Step:</span>
-                <span>{statusData.currentStep || 'N/A'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="font-medium">Last Completed Step:</span>
-                <span>{statusData.lastCompletedStep}</span>
-              </div>
-              {statusData.errorMessage && (
-                <div className="rounded bg-red-50 p-2">
-                  <span className="font-medium text-red-800">Error:</span>
-                  <p className="text-sm text-red-700">{statusData.errorMessage}</p>
-                </div>
-              )}
-            </div>
-          ) : null}
-          <button
-            type="button"
-            onClick={() => setViewingStatus(null)}
-            className="mt-4 rounded-lg bg-gray-200 px-4 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-300"
+      <Toolbar
+        left={
+          <Select
+            value={selectedWorkspace}
+            onValueChange={(value) => {
+              setSelectedWorkspace(value)
+              setPage(1)
+            }}
           >
-            Close
-          </button>
+            <SelectTrigger className="h-8 w-64 text-sm">
+              <SelectValue placeholder="Select workspace" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_WORKSPACES}>All workspaces</SelectItem>
+              {workspaces?.items.map((workspace) => (
+                <SelectItem key={workspace.id} value={workspace.id}>
+                  {workspace.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        }
+        right={
+          totalResults > 0 ? (
+            <span className="text-xs text-muted-foreground">
+              {totalResults} document{totalResults === 1 ? '' : 's'}
+            </span>
+          ) : null
+        }
+      />
+
+      {error && (
+        <div className="mb-3 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+          {error.message}
         </div>
       )}
 
-      <div className="rounded-lg bg-white shadow">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">ID</th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Filename
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Title
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Chunks
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Pages
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 bg-white">
-              {data?.items.map((doc) => (
-                <tr key={doc.documentId}>
-                  <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{doc.documentId}</td>
-                  <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">
-                    {doc.filename || 'N/A'}
-                  </td>
-                  <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{doc.title || 'N/A'}</td>
-                  <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{doc.chunksCount}</td>
-                  <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
-                    {doc.totalPages ? `${doc.totalPages} pages` : 'N/A'}
-                  </td>
-                  <td className="whitespace-nowrap px-6 py-4 text-right text-sm font-medium">
+      <div className="rounded-md border border-border">
+        <Table>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="h-9 px-3 text-xs font-medium uppercase tracking-wide">Document</TableHead>
+              <TableHead className="h-9 px-3 text-xs font-medium uppercase tracking-wide">Title</TableHead>
+              <TableHead className="h-9 px-3 text-xs font-medium uppercase tracking-wide">Chunks</TableHead>
+              <TableHead className="h-9 px-3 text-right text-xs font-medium uppercase tracking-wide">Pages</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {!workspaceId ? (
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={4} className="px-3 py-10 text-center">
+                  <p className="text-sm text-muted-foreground">Pick a workspace to see its documents.</p>
+                </TableCell>
+              </TableRow>
+            ) : isLoading ? (
+              ['s1', 's2', 's3'].map((key) => (
+                <TableRow key={key}>
+                  <TableCell className="px-3 py-2">
+                    <Skeleton className="h-4 w-48" />
+                  </TableCell>
+                  <TableCell className="px-3 py-2">
+                    <Skeleton className="h-4 w-40" />
+                  </TableCell>
+                  <TableCell className="px-3 py-2">
+                    <Skeleton className="h-4 w-10" />
+                  </TableCell>
+                  <TableCell className="px-3 py-2">
+                    <Skeleton className="ml-auto h-4 w-16" />
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : data?.items.length ? (
+              data.items.map((document) => (
+                <TableRow key={document.documentId} className="h-10">
+                  <TableCell className="px-3 py-2">
                     <button
                       type="button"
-                      onClick={() => setViewingStatus(doc.documentId)}
-                      className="text-blue-600 hover:text-blue-900"
+                      onClick={() => setViewingStatus(document.documentId)}
+                      className="flex items-center gap-2 text-left hover:text-primary"
                     >
-                      View Status
+                      <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <div className="min-w-0">
+                        <div className="truncate font-medium">{document.filename || 'Untitled document'}</div>
+                        <div className="kbd-font truncate text-[0.7rem] text-muted-foreground">
+                          {document.documentId}
+                        </div>
+                      </div>
                     </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {data?.meta && (
-          <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6">
-            <div className="flex flex-1 justify-between sm:hidden">
-              <button
-                type="button"
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                Previous
-              </button>
-              <button
-                type="button"
-                onClick={() => setPage((p) => p + 1)}
-                disabled={page >= data.meta.totalPages}
-                className="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                Next
-              </button>
-            </div>
-            <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm text-gray-700">
-                  Showing <span className="font-medium">{(page - 1) * 10 + 1}</span> to{' '}
-                  <span className="font-medium">{Math.min(page * 10, data.meta.totalResults)}</span> of{' '}
-                  <span className="font-medium">{data.meta.totalResults}</span> results
-                </p>
-              </div>
-              <div>
-                <nav className="inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
-                  <button
-                    type="button"
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    disabled={page === 1}
-                    className="relative inline-flex items-center rounded-l-md border border-gray-300 bg-white px-2 py-2 text-sm font-medium text-gray-500 hover:bg-gray-50"
-                  >
-                    Previous
-                  </button>
-                  <span className="relative inline-flex items-center border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700">
-                    Page {page} of {data.meta.totalPages}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setPage((p) => p + 1)}
-                    disabled={page >= data.meta.totalPages}
-                    className="relative inline-flex items-center rounded-r-md border border-gray-300 bg-white px-2 py-2 text-sm font-medium text-gray-500 hover:bg-gray-50"
-                  >
-                    Next
-                  </button>
-                </nav>
-              </div>
-            </div>
-          </div>
-        )}
+                  </TableCell>
+                  <TableCell className="px-3 py-2 text-muted-foreground">{document.title || '—'}</TableCell>
+                  <TableCell className="px-3 py-2 tabular-nums">{document.chunksCount}</TableCell>
+                  <TableCell className="px-3 py-2 text-right tabular-nums">{document.totalPages ?? '—'}</TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={4} className="px-3 py-10 text-center">
+                  <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-md border border-border bg-background">
+                    <UploadCloud className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <p className="text-sm text-muted-foreground">No documents indexed — upload a PDF to start.</p>
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
       </div>
+
+      {!!workspaceId && data && totalResults > 0 && (
+        <div className="mt-3 flex h-10 items-center justify-between text-xs text-muted-foreground">
+          <span>
+            {(page - 1) * 10 + 1}–{Math.min(page * 10, totalResults)} of {totalResults}
+          </span>
+          <div className="flex items-center gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 px-2 text-xs"
+              onClick={() => setPage((value) => Math.max(1, value - 1))}
+              disabled={page === 1}
+            >
+              Previous
+            </Button>
+            <span className="px-1">
+              Page {page} of {totalPages || 1}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 px-2 text-xs"
+              onClick={() => setPage((value) => value + 1)}
+              disabled={page >= totalPages}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
+
+      <Sheet open={uploadOpen} onOpenChange={setUploadOpen}>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>Upload PDF</SheetTitle>
+            <SheetDescription>Send a PDF to storage and start ingestion for a workspace.</SheetDescription>
+          </SheetHeader>
+          <form onSubmit={handleUpload} className="flex flex-1 flex-col">
+            <div className="space-y-4 p-5">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Workspace</Label>
+                <Select value={uploadWorkspace} onValueChange={setUploadWorkspace} required>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Select workspace" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {workspaces?.items.map((workspace) => (
+                      <SelectItem key={workspace.id} value={workspace.id}>
+                        {workspace.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="file" className="text-xs font-medium">
+                  PDF file
+                </Label>
+                <Input id="file" name="file" type="file" accept=".pdf,application/pdf" required className="h-9" />
+              </div>
+            </div>
+            <SheetFooter>
+              <Button type="button" variant="outline" size="sm" onClick={() => setUploadOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" size="sm" disabled={uploadMutation.isPending || !uploadWorkspace}>
+                {uploadMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Uploading…
+                  </>
+                ) : (
+                  <>
+                    <UploadCloud className="h-3.5 w-3.5" /> Upload
+                  </>
+                )}
+              </Button>
+            </SheetFooter>
+          </form>
+        </SheetContent>
+      </Sheet>
+
+      <Sheet open={!!viewingStatus} onOpenChange={(open) => !open && setViewingStatus(null)}>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>Document status</SheetTitle>
+            <SheetDescription>Ingestion progress and failure details.</SheetDescription>
+          </SheetHeader>
+          <div className="space-y-4 p-5">
+            {statusLoading ? (
+              <>
+                <Skeleton className="h-5 w-32" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-full" />
+              </>
+            ) : statusData ? (
+              <>
+                <div className="flex items-center justify-between">
+                  <StatusDot status={statusData.status as DocStatus} />
+                  {statusData.retryCount !== undefined && statusData.retryCount > 0 && (
+                    <span className="text-xs text-muted-foreground">{statusData.retryCount} retries</span>
+                  )}
+                </div>
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                  <dt className="text-xs uppercase tracking-wide text-muted-foreground">Current step</dt>
+                  <dd className="text-right tabular-nums">{statusData.currentStep || '—'}</dd>
+                  <dt className="text-xs uppercase tracking-wide text-muted-foreground">Last completed</dt>
+                  <dd className="text-right tabular-nums">{statusData.lastCompletedStep || '—'}</dd>
+                </dl>
+                {statusData.errorMessage && (
+                  <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                    {statusData.errorMessage}
+                  </p>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">No status data available.</p>
+            )}
+          </div>
+          <SheetFooter>
+            <Button type="button" variant="outline" size="sm" onClick={() => setViewingStatus(null)}>
+              Close
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

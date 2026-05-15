@@ -15,6 +15,15 @@ import { createTRPCClient, queryClient } from './utils/trpc.js'
 
 import './styles.css'
 
+const storedTheme = (() => {
+  try {
+    return window.localStorage.getItem('vogal:theme')
+  } catch {
+    return null
+  }
+})()
+document.documentElement.classList.toggle('dark', storedTheme !== 'light')
+
 const trpcClient = createTRPCClient()
 
 const root = document.getElementById('root')

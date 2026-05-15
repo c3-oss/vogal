@@ -1,215 +1,155 @@
-import { useState } from 'react'
+import { FileSearch, Search } from 'lucide-react'
+import { type FormEvent, useState } from 'react'
+import { PageHeader } from '../components/PageHeader.js'
+import { Badge } from '../components/ui/badge.js'
+import { Button } from '../components/ui/button.js'
+import { Input } from '../components/ui/input.js'
+import { Label } from '../components/ui/label.js'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select.js'
+import { Skeleton } from '../components/ui/skeleton.js'
+import { Textarea } from '../components/ui/textarea.js'
 import { trpc } from '../trpc.js'
+
+const ALL_WORKSPACES = 'all'
 
 export function SearchPage() {
   const [query, setQuery] = useState('')
-  const [workspaceId, setWorkspaceId] = useState('')
+  const [workspaceId, setWorkspaceId] = useState(ALL_WORKSPACES)
   const [limit, setLimit] = useState(5)
   const [hasSearched, setHasSearched] = useState(false)
 
-  const { data: workspaces } = trpc.workspaces.getAll.useQuery({
-    limit: 100,
-    page: 1,
-    orderBy: 'name',
-  })
-
-  const { data, isLoading, refetch } = trpc.search.query.useQuery(
-    {
-      query,
-      workspaceId,
-      limit,
-    },
-    {
-      enabled: false,
-    },
+  const { data: workspaces } = trpc.workspaces.getAll.useQuery({ limit: 100, page: 1, orderBy: 'name' })
+  const { data, isLoading, error, refetch } = trpc.search.query.useQuery(
+    { query, workspaceId: workspaceId === ALL_WORKSPACES ? '' : workspaceId, limit },
+    { enabled: false },
   )
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSearch = (event: FormEvent) => {
+    event.preventDefault()
     if (!query.trim()) return
     setHasSearched(true)
     refetch()
   }
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Search Documents</h1>
-        <p className="mt-2 text-sm text-gray-600">Search through your document knowledge base using semantic search</p>
-      </div>
+    <div className="mx-auto w-full max-w-5xl">
+      <PageHeader title="Search" description="Semantic retrieval across indexed documents" />
 
-      <div className="mb-6 rounded-lg bg-white p-6 shadow">
-        <form onSubmit={handleSearch} className="space-y-4">
-          <div>
-            <label htmlFor="query" className="block text-sm font-medium text-gray-700">
-              Search Query
-            </label>
-            <input
-              type="text"
-              id="query"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Enter your search query..."
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+      <form onSubmit={handleSearch} className="space-y-3">
+        <div className="space-y-1.5">
+          <Label htmlFor="query" className="text-xs font-medium">
+            Query
+          </Label>
+          <Textarea
+            id="query"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Ask anything about the indexed knowledge base…"
+            className="min-h-[80px] resize-none"
+          />
+        </div>
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex-1 min-w-[200px] space-y-1.5">
+            <Label className="text-xs font-medium">Workspace</Label>
+            <Select value={workspaceId} onValueChange={setWorkspaceId}>
+              <SelectTrigger className="h-9">
+                <SelectValue placeholder="All workspaces" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_WORKSPACES}>All workspaces</SelectItem>
+                {workspaces?.items.map((workspace) => (
+                  <SelectItem key={workspace.id} value={workspace.id}>
+                    {workspace.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="w-24 space-y-1.5">
+            <Label htmlFor="limit" className="text-xs font-medium">
+              Limit
+            </Label>
+            <Input
+              id="limit"
+              type="number"
+              min="1"
+              max="20"
+              value={limit}
+              onChange={(event) => setLimit(Number.parseInt(event.target.value) || 1)}
+              className="h-9"
             />
           </div>
+          <Button type="submit" size="sm" disabled={isLoading || !query.trim()} className="h-9">
+            <Search className="h-3.5 w-3.5" /> {isLoading ? 'Searching…' : 'Search'}
+          </Button>
+        </div>
+      </form>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label htmlFor="workspaceId" className="block text-sm font-medium text-gray-700">
-                Workspace (Optional)
-              </label>
-              <select
-                id="workspaceId"
-                value={workspaceId}
-                onChange={(e) => setWorkspaceId(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
-              >
-                <option value="">All Workspaces</option>
-                {workspaces?.items.map((ws) => (
-                  <option key={ws.id} value={ws.id}>
-                    {ws.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label htmlFor="limit" className="block text-sm font-medium text-gray-700">
-                Number of Results
-              </label>
-              <input
-                type="number"
-                id="limit"
-                min="1"
-                max="20"
-                value={limit}
-                onChange={(e) => setLimit(Number.parseInt(e.target.value))}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
-              />
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={isLoading || !query.trim()}
-            className="w-full rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50 sm:w-auto"
-          >
-            {isLoading ? 'Searching...' : 'Search'}
-          </button>
-        </form>
-      </div>
+      {error && (
+        <div className="mt-6 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+          {error.message}
+        </div>
+      )}
 
       {isLoading && (
-        <div className="flex items-center justify-center py-12">
-          <div className="text-center">
-            <div className="mb-4 inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent" />
-            <p className="text-gray-600">Searching documents...</p>
-          </div>
+        <div className="mt-6 space-y-3">
+          <Skeleton className="h-20" />
+          <Skeleton className="h-20" />
+          <Skeleton className="h-20" />
         </div>
       )}
 
       {!isLoading && hasSearched && data && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-gray-900">
-              Search Results ({data.hits.results.length} {data.hits.results.length === 1 ? 'result' : 'results'})
-            </h2>
+        <div className="mt-6">
+          <div className="mb-3 flex items-center justify-between border-b border-border pb-2">
+            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              {data.hits.results.length === 1 ? '1 result' : `${data.hits.results.length} results`}
+            </span>
           </div>
-
           {data.hits.results.length === 0 ? (
-            <div className="rounded-lg bg-white p-8 text-center shadow">
-              <svg
-                className="mx-auto h-12 w-12 text-gray-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No results found</h3>
-              <p className="mt-1 text-sm text-gray-500">Try adjusting your search query or filters</p>
+            <div className="py-10 text-center">
+              <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-md border border-border bg-background">
+                <FileSearch className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <p className="text-sm text-muted-foreground">No matches — try a broader query.</p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <ul className="space-y-4">
               {data.hits.results.map((hit, index) => (
-                <div key={`${hit.documentId}-${index}`} className="rounded-lg bg-white p-6 shadow">
-                  <div className="mb-4 flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-gray-500">Document:</span>
-                        <span className="font-mono text-sm text-gray-700">{hit.documentId}</span>
-                      </div>
-                      {hit.filename && (
-                        <div className="mt-1 flex items-center gap-2">
-                          <span className="text-sm font-medium text-gray-500">Filename:</span>
-                          <span className="text-sm text-gray-700">{hit.filename}</span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex flex-col items-end gap-1">
-                      <span
-                        className="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-800"
-                        title="Similarity Score"
-                      >
-                        {(hit.score * 100).toFixed(1)}% match
-                      </span>
-                      {hit.pageNumber !== undefined && (
-                        <span className="text-xs text-gray-500">Page {hit.pageNumber}</span>
-                      )}
-                    </div>
+                <li key={`${hit.documentId}-${index}`} className="border-l-2 border-primary/40 pl-4">
+                  <div className="mb-1.5 flex flex-wrap items-center gap-2 text-sm">
+                    <span className="font-medium">{hit.filename || 'Document chunk'}</span>
+                    {hit.pageNumber !== undefined && (
+                      <Badge variant="outline" className="h-5 px-1.5 text-[0.65rem]">
+                        p. {hit.pageNumber}
+                      </Badge>
+                    )}
+                    <span className="ml-auto text-xs tabular-nums text-muted-foreground">
+                      {(hit.score * 100).toFixed(1)}%
+                    </span>
                   </div>
-
-                  <div className="rounded bg-gray-50 p-4">
-                    <p className="text-sm leading-relaxed text-gray-800">{hit.text}</p>
-                  </div>
-
+                  <p className="text-sm leading-6 text-muted-foreground">{hit.text}</p>
                   {hit.metadata && Object.keys(hit.metadata).length > 0 && (
-                    <div className="mt-4 border-t pt-4">
-                      <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-500">Metadata</p>
-                      <div className="grid grid-cols-2 gap-2">
-                        {Object.entries(hit.metadata).map(([key, value]) => (
-                          <div key={key} className="text-sm">
-                            <span className="font-medium text-gray-700">{key}:</span>{' '}
-                            <span className="text-gray-600">{String(value)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+                    <p className="mt-1.5 text-xs text-muted-foreground/80">
+                      {Object.entries(hit.metadata)
+                        .filter(([, value]) => value !== null && value !== undefined && value !== '')
+                        .map(([key, value]) => `${key}: ${value}`)
+                        .join(' · ')}
+                    </p>
                   )}
-                </div>
+                </li>
               ))}
-            </div>
+            </ul>
           )}
         </div>
       )}
 
       {!hasSearched && !isLoading && (
-        <div className="rounded-lg bg-white p-12 text-center shadow">
-          <svg
-            className="mx-auto h-16 w-16 text-gray-300"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-            />
-          </svg>
-          <h3 className="mt-4 text-lg font-medium text-gray-900">Start searching</h3>
-          <p className="mt-2 text-sm text-gray-500">
-            Enter a query above to search through your document knowledge base
-          </p>
+        <div className="mt-10 py-10 text-center">
+          <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-md border border-border bg-background">
+            <Search className="h-5 w-5 text-muted-foreground" />
+          </div>
+          <p className="text-sm text-muted-foreground">Type a question and pick a workspace to start searching.</p>
         </div>
       )}
     </div>
