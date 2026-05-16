@@ -38,7 +38,12 @@ const setupExitHandlers = (server: Server, context: WiringContext, log: Logger) 
 export const exec = async (log: Logger) => {
   const serverLog = log.child({ module: 'server' })
   const context = await buildContext(serverLog)
-  const app = Fastify({ loggerInstance: serverLog }) as Server
+
+  // tRPC upload sends the PDF as base64-encoded JSON. Base64 inflates payloads by ~33%,
+  // plus JSON wrapping/field overhead, so the Fastify body limit must exceed the raw file
+  // limit by a safe margin.
+  const bodyLimit = Math.ceil(env.HTTP_FILE_SIZE_LIMIT * 1.4) + 1024 * 1024
+  const app = Fastify({ loggerInstance: serverLog, bodyLimit }) as Server
 
   await app.register(helmet)
   await app.register(cors, { origin: env.HTTP_CORS_ORIGIN, credentials: true })

@@ -14,28 +14,28 @@ import {
 } from '~validators/documents.validators.js'
 
 import type { DocumentDTO } from '~application/dto/index.js'
-import type { VogalRepositoryPort } from '~application/port/index.js'
+import type { DocumentRepositoryPort } from '~application/port/index.js'
 import type { Jsonifiable } from '~infra/contracts.js'
 import type { UpdateDocumentUseCase } from '~usecase/document/update-document.js'
 
 // ---------------------------------------------------------------------------------------------------------------------
 
 interface DocumentsControllerDependencies {
-  repository: VogalRepositoryPort
+  documentRepository: DocumentRepositoryPort
   updateDocument: UpdateDocumentUseCase
 }
 
 export class DocumentsController extends BaseController {
-  private readonly repository: VogalRepositoryPort
+  private readonly documentRepository: DocumentRepositoryPort
   private readonly updateDocument: UpdateDocumentUseCase
 
   public constructor(deps: DocumentsControllerDependencies) {
     super()
 
-    const { repository, updateDocument } = deps
-    this.invariant({ repository, updateDocument })
+    const { documentRepository, updateDocument } = deps
+    this.invariant({ documentRepository, updateDocument })
 
-    this.repository = repository
+    this.documentRepository = documentRepository
     this.updateDocument = updateDocument
   }
 
@@ -60,15 +60,13 @@ export class DocumentsController extends BaseController {
 
     const { orderField, orderDirection, limit, page, workspaceId } = parsed.data
 
-    const docsResult = await this.repository.listDocuments(
-      {
-        limit,
-        page,
-        orderField,
-        orderDirection,
-      },
-      workspaceId,
-    )
+    const docsResult = await this.documentRepository.listForUI({
+      workspaceIdExt: workspaceId,
+      limit,
+      page,
+      orderField,
+      orderDirection,
+    })
 
     if (isErr(docsResult)) {
       throw docsResult.left

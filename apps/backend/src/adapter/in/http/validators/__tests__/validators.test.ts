@@ -19,11 +19,15 @@ describe('Validators transforms', () => {
   })
 
   it('DocumentsListQuerySchema maps workspace and asc/desc', () => {
-    const d1 = DocumentsListQuerySchema.parse({ workspaceId: 'w', orderBy: 'title' })
-    expect(d1).toEqual({ workspaceId: 'w', orderField: 'title', orderDirection: 'asc', limit: 20, page: 1 })
+    const d1 = DocumentsListQuerySchema.parse({ workspaceId: 'w', orderBy: 'filename' })
+    expect(d1).toEqual({ workspaceId: 'w', orderField: 'filename', orderDirection: 'asc', limit: 20, page: 1 })
 
-    const d2 = DocumentsListQuerySchema.parse({ workspaceId: 'w', orderBy: '-author', limit: '5', page: '3' })
-    expect(d2).toEqual({ workspaceId: 'w', orderField: 'author', orderDirection: 'desc', limit: 5, page: 3 })
+    const d2 = DocumentsListQuerySchema.parse({ workspaceId: 'w', orderBy: '-status', limit: '5', page: '3' })
+    expect(d2).toEqual({ workspaceId: 'w', orderField: 'status', orderDirection: 'desc', limit: 5, page: 3 })
+
+    // workspaceId is now optional ("All workspaces")
+    const d3 = DocumentsListQuerySchema.parse({})
+    expect(d3).toEqual({ workspaceId: undefined, orderField: 'createdAt', orderDirection: 'desc', limit: 20, page: 1 })
   })
 
   it('UpdateUserBodySchema enforces at least one field', () => {

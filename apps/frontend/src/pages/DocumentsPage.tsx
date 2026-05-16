@@ -1,4 +1,4 @@
-import { FileText, Loader2, UploadCloud } from 'lucide-react'
+import { CheckCircle2, FileText, Loader2, UploadCloud, XCircle } from 'lucide-react'
 import { type FormEvent, useState } from 'react'
 import { PageHeader } from '../components/PageHeader.js'
 import { Toolbar } from '../components/Toolbar.js'
@@ -15,6 +15,49 @@ import { trpc } from '../trpc.js'
 const ALL_WORKSPACES = 'all'
 
 type DocStatus = 'pending' | 'processing' | 'failed' | 'ready' | 'queued' | 'completed' | string | undefined
+
+const STEP_LABEL: Record<string, string> = {
+  pending: 'Queued',
+  storage_upload: 'Uploading',
+  file_reference: 'Linking',
+  content_indexed: 'Indexing',
+  finalized: 'Finalizing',
+}
+
+function ListStatusCell({
+  status,
+  currentStep,
+  errorMessage,
+  failureReason,
+}: {
+  status: 'pending' | 'processing' | 'failed' | 'ready'
+  currentStep: string | null
+  errorMessage: string | null
+  failureReason: string | null
+}) {
+  if (status === 'ready') {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs text-success">
+        <CheckCircle2 className="h-3.5 w-3.5" aria-hidden /> Ready
+      </span>
+    )
+  }
+  if (status === 'failed') {
+    const reason = errorMessage || failureReason || 'Failed'
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs text-destructive" title={reason}>
+        <XCircle className="h-3.5 w-3.5" aria-hidden /> Failed
+      </span>
+    )
+  }
+  const stepLabel = currentStep ? (STEP_LABEL[currentStep] ?? currentStep) : 'Queued'
+  return (
+    <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+      <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+      {stepLabel}…
+    </span>
+  )
+}
 
 const fileToBase64 = async (file: File) => {
   const bytes = new Uint8Array(await file.arrayBuffer())
@@ -53,11 +96,15 @@ export function DocumentsPage() {
 
   const utils = trpc.useUtils()
   const { data: workspaces } = trpc.workspaces.getAll.useQuery({ limit: 100, page: 1, orderBy: 'name' })
-  const workspaceId = selectedWorkspace === ALL_WORKSPACES ? '' : selectedWorkspace
+  const showAllWorkspaces = selectedWorkspace === ALL_WORKSPACES
+  const workspaceId = showAllWorkspaces ? undefined : selectedWorkspace
 
   const { data, isLoading, error } = trpc.documents.list.useQuery(
-    { limit: 10, page, orderBy: '-filename', workspaceId },
-    { enabled: !!workspaceId },
+    { limit: 10, page, orderBy: '-createdAt', workspaceId },
+    {
+      refetchInterval: (q) =>
+        q.state.data?.items.some((d) => d.status === 'pending' || d.status === 'processing') ? 2500 : false,
+    },
   )
 
   const { data: statusData, isLoading: statusLoading } = trpc.documents.status.useQuery(
@@ -145,29 +192,27 @@ export function DocumentsPage() {
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead className="h-9 px-3 text-xs font-medium uppercase tracking-wide">Document</TableHead>
-              <TableHead className="h-9 px-3 text-xs font-medium uppercase tracking-wide">Title</TableHead>
-              <TableHead className="h-9 px-3 text-xs font-medium uppercase tracking-wide">Chunks</TableHead>
-              <TableHead className="h-9 px-3 text-right text-xs font-medium uppercase tracking-wide">Pages</TableHead>
+              {showAllWorkspaces && (
+                <TableHead className="h-9 px-3 text-xs font-medium uppercase tracking-wide">Workspace</TableHead>
+              )}
+              <TableHead className="h-9 px-3 text-xs font-medium uppercase tracking-wide">Status</TableHead>
+              <TableHead className="h-9 px-3 text-right text-xs font-medium uppercase tracking-wide">Added</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {!workspaceId ? (
-              <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={4} className="px-3 py-10 text-center">
-                  <p className="text-sm text-muted-foreground">Pick a workspace to see its documents.</p>
-                </TableCell>
-              </TableRow>
-            ) : isLoading ? (
+            {isLoading ? (
               ['s1', 's2', 's3'].map((key) => (
                 <TableRow key={key}>
                   <TableCell className="px-3 py-2">
                     <Skeleton className="h-4 w-48" />
                   </TableCell>
+                  {showAllWorkspaces && (
+                    <TableCell className="px-3 py-2">
+                      <Skeleton className="h-4 w-24" />
+                    </TableCell>
+                  )}
                   <TableCell className="px-3 py-2">
-                    <Skeleton className="h-4 w-40" />
-                  </TableCell>
-                  <TableCell className="px-3 py-2">
-                    <Skeleton className="h-4 w-10" />
+                    <Skeleton className="h-4 w-20" />
                   </TableCell>
                   <TableCell className="px-3 py-2">
                     <Skeleton className="ml-auto h-4 w-16" />
@@ -192,18 +237,29 @@ export function DocumentsPage() {
                       </div>
                     </button>
                   </TableCell>
-                  <TableCell className="px-3 py-2 text-muted-foreground">{document.title || '—'}</TableCell>
-                  <TableCell className="px-3 py-2 tabular-nums">{document.chunksCount}</TableCell>
-                  <TableCell className="px-3 py-2 text-right tabular-nums">{document.totalPages ?? '—'}</TableCell>
+                  {showAllWorkspaces && (
+                    <TableCell className="px-3 py-2 text-muted-foreground">{document.workspaceName}</TableCell>
+                  )}
+                  <TableCell className="px-3 py-2">
+                    <ListStatusCell
+                      status={document.status}
+                      currentStep={document.currentStep}
+                      errorMessage={document.errorMessage}
+                      failureReason={document.failureReason}
+                    />
+                  </TableCell>
+                  <TableCell className="px-3 py-2 text-right text-xs text-muted-foreground tabular-nums">
+                    {new Date(document.createdAt).toLocaleString()}
+                  </TableCell>
                 </TableRow>
               ))
             ) : (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={4} className="px-3 py-10 text-center">
+                <TableCell colSpan={showAllWorkspaces ? 4 : 3} className="px-3 py-10 text-center">
                   <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-md border border-border bg-background">
                     <UploadCloud className="h-5 w-5 text-muted-foreground" />
                   </div>
-                  <p className="text-sm text-muted-foreground">No documents indexed — upload a PDF to start.</p>
+                  <p className="text-sm text-muted-foreground">No documents — upload a PDF to start.</p>
                 </TableCell>
               </TableRow>
             )}
@@ -211,7 +267,7 @@ export function DocumentsPage() {
         </Table>
       </div>
 
-      {!!workspaceId && data && totalResults > 0 && (
+      {data && totalResults > 0 && (
         <div className="mt-3 flex h-10 items-center justify-between text-xs text-muted-foreground">
           <span>
             {(page - 1) * 10 + 1}–{Math.min(page * 10, totalResults)} of {totalResults}

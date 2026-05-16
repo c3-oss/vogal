@@ -24,7 +24,7 @@ export const env = createEnv({
     LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error']).default('info'),
     HTTP_PORT: stringNumberEnv(3000),
     HTTP_HOST: z.string().default('0.0.0.0'),
-    HTTP_FILE_SIZE_LIMIT: stringNumberEnv(25 * 1024 * 1024), // 25MB
+    HTTP_FILE_SIZE_LIMIT: stringNumberEnv(50 * 1024 * 1024), // 50MB
     HTTP_CORS_ORIGIN: z.string().url().default('http://localhost:5173'),
     OPENAI_API_KEY: z.string().nonempty(),
     DATABASE_URL: z.string().startsWith('postgres'),

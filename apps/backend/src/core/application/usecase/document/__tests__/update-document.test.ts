@@ -14,6 +14,7 @@ const createMockDependencies = () => ({
   documentRepository: {
     get: vi.fn(),
     update: vi.fn(),
+    listForUI: vi.fn(),
   },
   logger: createMockLogger(),
 })

@@ -20,10 +20,13 @@ export const documentsRouter = (deps: RouterDeps) =>
   t.router({
     list: t.procedure.input(DocumentsListQuerySchema).query(async ({ input }) => {
       const { orderField, orderDirection, limit, page, workspaceId } = input
-      const docs = await deps.repositories.vectorRepository.listDocuments(
-        { limit, page, orderField, orderDirection },
-        workspaceId,
-      )
+      const docs = await deps.repositories.documentRepository.listForUI({
+        workspaceIdExt: workspaceId,
+        limit,
+        page,
+        orderField,
+        orderDirection,
+      })
       return rightOrThrow(docs)
     }),
 

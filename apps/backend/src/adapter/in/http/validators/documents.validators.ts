@@ -6,7 +6,7 @@ import { IdExtSchema, LimitSchema, PageSchema, buildOrderByEnum } from './common
 
 // ---------------------------------------------------------------------------------------------------------------------
 
-const DocumentOrderFields = ['filename', 'title', 'author', 'chunksCount'] as const
+const DocumentOrderFields = ['createdAt', 'filename', 'status'] as const
 const DocumentOrderBySchema = buildOrderByEnum(DocumentOrderFields)
 
 export const DocumentIdExtParamsSchema = z.object({
@@ -19,14 +19,14 @@ export const UpdateDocumentBodySchema = z.object({
 
 export const DocumentsListQuerySchema = z
   .object({
-    workspaceId: IdExtSchema,
+    workspaceId: IdExtSchema.optional(),
     limit: LimitSchema,
     page: PageSchema,
-    orderBy: DocumentOrderBySchema.optional().default('-filename'),
+    orderBy: DocumentOrderBySchema.optional().default('-createdAt'),
   })
   .transform(({ workspaceId, limit, page, orderBy }) => {
     const isDesc = Boolean(orderBy?.startsWith('-'))
-    const field = orderBy ? orderBy.replace(/^-/i, '') : 'filename'
+    const field = orderBy ? orderBy.replace(/^-/i, '') : 'createdAt'
     const orderField = field as (typeof DocumentOrderFields)[number]
     const orderDirection = (isDesc ? 'desc' : 'asc') as 'asc' | 'desc'
     return { workspaceId, limit, page, orderField, orderDirection }

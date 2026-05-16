@@ -177,7 +177,7 @@ export const initControllers = (
     getChatMessages,
   } = useCases
 
-  const { vectorRepository, uploadsRepository } = repositories
+  const { uploadsRepository, documentRepository } = repositories
 
   const healthController = new HealthController({ getHealthStatus })
   const uploadController = new UploadController({
@@ -186,7 +186,7 @@ export const initControllers = (
     getWorkspace,
   })
   const searchController = new SearchController({ search })
-  const documentsController = new DocumentsController({ repository: vectorRepository, updateDocument })
+  const documentsController = new DocumentsController({ documentRepository, updateDocument })
   const documentStatusController = new DocumentStatusController({ uploads: uploadsRepository })
 
   const usersController = new UsersController({
