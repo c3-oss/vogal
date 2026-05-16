@@ -6,7 +6,7 @@ This is a future-me reminder on how to bring up the RAG HTTP adapter locally, ex
 - Docker Compose stack (`apps/rag/docker-compose.yml`) must already be running.
 - Use the project root as working directory unless noted.
 - Environment relies on `.env`; values referencing other vars are **not** expanded automatically when using `tsx/drizzle-kit`, so export overrides when needed.
-- CLI tools needed: `pnpm`, `psql`, `redis-cli`, `aws` (pointed at Localstack), `curl`.
+- CLI tools needed: `pnpm`, `psql`, `redis-cli`, `aws` (pointed at MiniStack), `curl`.
 
 ## 2. Baseline Checks
 ```bash
@@ -27,8 +27,8 @@ export QDRANT_URL="http://localhost:16333"
 pnpm db:migrate
 ```
 
-## 4. S3 Bucket on Localstack
-Uploads fail until the bucket exists. Create it once per fresh environment.
+## 4. S3 Bucket on MiniStack
+The MiniStack init script (`scripts/ministack-init/01-bucket.sh`) creates the `rag` bucket automatically on container boot. If you ever need to (re)create it manually:
 ```bash
 AWS_ACCESS_KEY_ID=test \
 AWS_SECRET_ACCESS_KEY=test \
@@ -37,7 +37,7 @@ aws --endpoint-url http://localhost:4566 s3 mb s3://rag
 ```
 
 ## 5. Start the HTTP Adapter
-Force path-style so Localstack accepts the bucket hostnames; keep test AWS creds in the environment during the run.
+Force path-style so MiniStack accepts the bucket hostnames; keep test AWS creds in the environment during the run.
 ```bash
 AWS_ACCESS_KEY_ID=test \
 AWS_SECRET_ACCESS_KEY=test \
@@ -80,7 +80,7 @@ psql "$DATABASE_URL" -c "select id_ext,filename,status,failure_reason from docum
 psql "$DATABASE_URL" -c "select job_id_ext,status,current_step,last_completed_step,error_message from documents.document_uploads order by id desc limit 5;"
 ```
 
-### Localstack S3
+### MiniStack S3
 ```bash
 aws --endpoint-url http://localhost:4566 s3 ls s3://rag/documents/${DOC_ID}/
 ```

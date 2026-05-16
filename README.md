@@ -40,7 +40,7 @@ Default local services from the current compose env are:
 Postgres   localhost:15432
 Redis      localhost:16379
 Qdrant     localhost:16333
-Localstack localhost:4566
+MiniStack  localhost:4566
 ```
 
 Apply database migrations from the backend package after Postgres is available:

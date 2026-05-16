@@ -38,12 +38,18 @@ services:
       - QDRANT__SERVICE__API_KEY=${VECTORTOKEN}
       - QDRANT__LOG_LEVEL=INFO
 
-  localstack:
-    image: ${LOCALSTACKIMG}
-    container_name: ${LOCALSTACKHOST}
+  ministack:
+    image: ${MINISTACKIMG}
+    container_name: ${MINISTACKHOST}
     ports:
       - 4566:4566
-      - 4510-4559:4510-4559
     volumes:
-      - ./.volumes/localstack:/var/lib/localstack
+      - ./.volumes/ministack:/var/lib/ministack
+      # MiniStack honours the LocalStack-compat init path; do not rename.
+      - ./scripts/ministack-init:/etc/localstack/init/ready.d
     restart: always
+    environment:
+      - MINISTACK_REGION=us-east-1
+      - PERSIST_STATE=1
+      - S3_PERSIST=1
+      - VOGAL_STORAGE_S3_BUCKET=${VOGAL_STORAGE_S3_BUCKET}

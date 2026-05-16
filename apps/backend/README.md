@@ -31,7 +31,7 @@ pnpm --filter @c3-oss/vogal-backend db:migrate
 pnpm --filter @c3-oss/vogal-backend start
 ```
 
-The compose stack provides Postgres, Redis Stack, Qdrant, and Localstack. Keep local `.env` values aligned with `src/infra/config/env.ts`; storage variables use the `VOGAL_STORAGE_*` prefix.
+The compose stack provides Postgres, Redis Stack, Qdrant, and MiniStack. Keep local `.env` values aligned with `src/infra/config/env.ts`; storage variables use the `VOGAL_STORAGE_*` prefix.
 
 ## Scripts
 

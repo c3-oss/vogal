@@ -7,7 +7,7 @@ Assumptions: Docker Compose stack (`apps/rag/docker-compose.yml`) running.
 ## 1. Prerequisites
 - Docker Compose stack running (`docker ps | grep rag_`)
 - Working directory: `apps/rag/`
-- Tools: `pnpm`, `psql`, `redis-cli`, `aws` (Localstack), `curl`, `jq`, `base64`
+- Tools: `pnpm`, `psql`, `redis-cli`, `aws` (MiniStack), `curl`, `jq`, `base64`
 
 ## 2. Environment Setup
 ```bash
