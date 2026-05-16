@@ -1,40 +1,55 @@
 # Vogal
 
-Vogal is a pnpm/Turborepo monorepo for a document intelligence system. The backend ingests PDFs, stores file references, extracts text, creates embeddings, indexes chunks in Qdrant, and exposes search/chat APIs over HTTP and tRPC. The frontend is a React/Vite console for health checks, users, workspaces, documents, uploads, and search.
+Vogal is a workspace-aware document intelligence platform for teams that store PDFs and need fast semantic retrieval. It combines document ingestion, vector indexing, and conversational search in a single monorepo with a Fastify/tRPC API and a React/Vite console.
 
-## Repository Layout
+## What is Vogal
+
+- **Ingestion**: upload documents, extract text, and normalize content into searchable chunks.
+- **Indexing**: generate embeddings and persist chunk vectors in Qdrant.
+- **Retrieval**: search and chat over indexed documents with workspace boundaries.
+- **Orchestration**: optional AI planning and tool-calling surfaces for chat workflows.
+
+## Architecture
 
 ```text
-apps/backend/    Fastify + tRPC API, Drizzle/Postgres, Qdrant, Redis, storage, AI adapters
-apps/frontend/   React 19 + Vite + Tailwind UI backed by the backend tRPC router
-.codex/          Codex skills, prompts, and Ralph Loop reviewer subagents
-.claude/         Claude Code commands, samples, settings, and mirrored reviewer agents
-docs/            Shared workflow and project documentation
+apps/backend/    Fastify + tRPC API (Drizzle/Postgres, Qdrant, Redis, storage, OpenAI adapters)
+apps/frontend/   React 19 + Vite + Tailwind UI consumed from backend tRPC contracts
+packages/        Shared helpers and reusable components
+docs/            Operational documentation and project handbooks
+.codex/          Codex agent workflows and Ralph Loop governance assets
+.claude/         Claude command and reviewer assets
 ```
 
 ## Requirements
 
-- Devbox with Node.js 24.x from `devbox.json`
-- pnpm 11.1.2 via Corepack
-- Docker Desktop or compatible Docker daemon
-- OpenAI API key for embedding, normalization, and chat flows
+- Node.js 24.x (via Devbox / `devbox.json`)
+- pnpm 11.x (via Corepack)
+- Docker-compatible runtime for local services
+- OpenAI API key for embeddings, text processing, and chat
 
-Enter the project environment with:
+## Quickstart
 
 ```bash
+git clone https://github.com/c3-oss/vogal.git
+cd vogal
 devbox shell
 pnpm install
+
+docker compose --env-file apps/backend/.env -f apps/backend/docker-compose.yml up -d
+pnpm --filter @c3-oss/vogal-backend db:migrate
+pnpm --filter @c3-oss/vogal-backend start
+pnpm --filter @c3-oss/vogal-frontend start
 ```
+
+After both services are running:
+
+- Backend API: `http://localhost:3000`
+- Frontend UI: `http://localhost:5173`
+- Health endpoint: `http://localhost:3000/health`
 
 ## Local Infrastructure
 
-The backend compose stack lives at `apps/backend/docker-compose.yml` and uses `apps/backend/.env` for image names, ports, credentials, and service tokens.
-
-```bash
-docker compose --env-file apps/backend/.env -f apps/backend/docker-compose.yml up -d
-```
-
-Default local services from the current compose env are:
+The backend stack is defined in `apps/backend/docker-compose.yml` and configured through `apps/backend/.env`.
 
 ```text
 Postgres   localhost:15432
@@ -43,49 +58,45 @@ Qdrant     localhost:16333
 MiniStack  localhost:4566
 ```
 
-Apply database migrations from the backend package after Postgres is available:
-
-```bash
-pnpm --filter @c3-oss/vogal-backend db:migrate
-```
-
-## Run The Apps
+## Development Commands
 
 ```bash
 pnpm --filter @c3-oss/vogal-backend start
 pnpm --filter @c3-oss/vogal-frontend start
-```
 
-The frontend defaults to `http://localhost:5173` and calls `http://localhost:3000/trpc`.
-
-## Common Commands
-
-```bash
 pnpm --filter @c3-oss/vogal-backend typecheck
 pnpm --filter @c3-oss/vogal-frontend typecheck
+
 pnpm --filter @c3-oss/vogal-backend lint
 pnpm --filter @c3-oss/vogal-frontend lint
+
 pnpm --filter @c3-oss/vogal-backend test
+pnpm --filter @c3-oss/vogal-backend test:e2e
 pnpm turbo run build
 ```
 
-Use `just --list` for repo-local aliases.
+Use `just --list` for repo-local aliases and workflow shorthands.
 
-## Agent Workflow Assets
+## Docs
 
-This repo includes Ralph Loop workflow assets from `c3-oss/ralph-loop-governor`:
+Backend-specific references live in `apps/backend/README.md` and the handbook:
 
-- `.codex/skills/ralph-loop-governor/` for governed implementation runs
-- `.codex/skills/repo-commit-and-push/` for commit/push policy
-- `.codex/skills/parallel-delegation/` for safe subagent decomposition
-- `.codex/skills/sync-claude-md/` for Claude guidance alignment
-- `.codex/agents/` and `.claude/agents/` for reviewer specialists
-- `.codex/prompts/` for kickoff, restart, slicing, and final review prompts
+- `apps/backend/handbook/architecture.md`
+- `apps/backend/handbook/features.md`
+- `apps/backend/handbook/getting-started.md`
+- `apps/backend/handbook/api-reference.md`
+- `docs/ralph-loop-governor.md`
 
-See `docs/ralph-loop-governor.md` for the full operating model.
+## Agent Workflow Layer
 
-## Notes
+This repository ships with governance and execution assets under `.codex/` and `.claude/`:
 
-- Keep secrets out of git. `.env` files are ignored.
-- Generated Docker volumes under `apps/backend/.volumes/` are ignored.
-- Biome remains on v1 because `@c3-oss/config-biome@0.3.1` currently peers against `@biomejs/biome ^1.9.4`.
+- governed implementation loops
+- reviewer agents
+- reusable prompts and commit/push helpers
+
+## Operational Notes
+
+- Keep secrets in local `.env` files only (already ignored).
+- Generated runtime artifacts (including `apps/backend/.volumes/`) should stay out of git.
+- Biome is pinned by shared config and currently remains on v1-compatible alignment.
