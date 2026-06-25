@@ -100,3 +100,17 @@ This repository ships with governance and execution assets under `.codex/` and `
 - Keep secrets in local `.env` files only (already ignored).
 - Generated runtime artifacts (including `apps/backend/.volumes/`) should stay out of git.
 - Biome is pinned by shared config and currently remains on v1-compatible alignment.
+
+## License
+
+To the extent possible under law, [Caian Ertl][me] has waived __all copyright
+and related or neighboring rights to this work__. In the spirit of _freedom of
+information_, I encourage you to fork, modify, change, share, or do whatever
+you like with this project! [`^C ^V`][kopimi]
+
+[![License][cc-shield]][cc-url]
+
+[me]: https://github.com/upsetbit
+[cc-shield]: https://forthebadge.com/images/badges/cc-0.svg
+[cc-url]: http://creativecommons.org/publicdomain/zero/1.0
+[kopimi]: https://kopimi.com
