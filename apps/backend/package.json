@@ -88,7 +88,7 @@
     "opossum": "^9.0.0",
     "pdf-parse": "^2.4.5",
     "pg": "^8.20.0",
-    "redis": "^5.12.1",
+    "redis": "^6.2.0",
     "restify-errors": "^8.1.0",
     "safe-stable-stringify": "^2.5.0",
     "superjson": "^2.2.6",
