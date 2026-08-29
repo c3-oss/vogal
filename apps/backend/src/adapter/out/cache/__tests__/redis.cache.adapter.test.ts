@@ -25,8 +25,6 @@ vi.mock('redis', () => {
   }
 })
 
-vi.mock('@redis/json', () => ({}))
-
 describe('RedisCacheAdapter', () => {
   let mockLogger: any
   let mockClient: any
