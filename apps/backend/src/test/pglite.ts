@@ -5,7 +5,7 @@ import path from 'node:path'
 
 // 3rd-party
 import { PGlite } from '@electric-sql/pglite'
-import { vector } from '@electric-sql/pglite/vector'
+import { vector } from '@electric-sql/pglite-pgvector'
 import { drizzle as drizzlePglite } from 'drizzle-orm/pglite'
 import { migrate } from 'drizzle-orm/pglite/migrator'
 

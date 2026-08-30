@@ -1,7 +1,6 @@
 // 3rd-party
 import { createHash } from 'node:crypto'
-import { type RedisClientType, createClient } from 'redis'
-import '@redis/json'
+import { type RedisClientType, type RedisJSON, createClient } from 'redis'
 import stringify from 'safe-stable-stringify'
 
 // c3
@@ -17,16 +16,6 @@ import type { CacheFactoryDeps, CachePort } from '~port/cache.port.js'
 export class RedisCacheAdapter extends BaseAdapter implements CachePort {
   private readonly log: Logger
   private readonly client: RedisClientType
-  private get json() {
-    return (
-      this.client as unknown as {
-        json: {
-          get: (key: string) => Promise<unknown>
-          set: (key: string, path: string, value: unknown) => Promise<unknown>
-        }
-      }
-    ).json
-  }
 
   public constructor(deps: CacheFactoryDeps) {
     super()
@@ -47,7 +36,7 @@ export class RedisCacheAdapter extends BaseAdapter implements CachePort {
 
   public async getJSON<T>(key: string): Promise<Nullable<T>> {
     try {
-      const value = await this.json.get(key)
+      const value = await this.client.json.get(key)
       return (value as T | null) ?? null
     } catch (err) {
       this.log.warn({ err, key }, 'Redis JSON.GET failed')
@@ -57,7 +46,7 @@ export class RedisCacheAdapter extends BaseAdapter implements CachePort {
 
   public async setJSON<T>(key: string, value: T, ttlSeconds: number): Promise<void> {
     try {
-      await this.json.set(key, '$', value as unknown)
+      await this.client.json.set(key, '$', value as RedisJSON)
       if (ttlSeconds > 0) {
         await this.client.expire(key, ttlSeconds)
       }
