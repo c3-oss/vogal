@@ -45,7 +45,7 @@
     "@swc/core": "^1.15.47",
     "@swc/helpers": "^0.5.23",
     "@types/node": "^24.12.4",
-    "@vitest/coverage-v8": "^4.1.10",
+    "@vitest/coverage-v8": "^4.1.12",
     "commitizen": "^4.3.2",
     "concurrently": "^9.2.1",
     "husky": "^9.1.7",
@@ -56,7 +56,7 @@
     "typedoc-plugin-coverage": "^4.0.3",
     "typedoc-plugin-rename-defaults": "^0.7.3",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.12"
   },
   "optionalDependencies": {
     "@rollup/rollup-linux-arm64-gnu": "^4.62.4",
