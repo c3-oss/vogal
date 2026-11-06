@@ -52,7 +52,7 @@
     "@types/restify-errors": "^4.3.9",
     "@types/supertest": "^7.2.1",
     "dotenv": "^17.4.2",
-    "dotenv-expand": "^13.0.0",
+    "dotenv-expand": "^1000.0.0",
     "drizzle-kit": "^0.31.10",
     "supertest": "^7.2.2",
     "tsx": "^4.23.1",
